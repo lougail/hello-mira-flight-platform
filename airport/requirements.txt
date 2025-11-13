@@ -1,0 +1,19 @@
+# Framework Web Asynchrone
+fastapi==0.115.0          # Framework moderne avec validation auto et docs Swagger
+uvicorn[standard]==0.30.6 # Serveur ASGI performant pour FastAPI
+
+# Validation et Configuration
+pydantic==2.9.2           # Validation de données avec type hints
+pydantic-settings==2.5.2  # Gestion des variables d'environnement
+
+# Client HTTP Asynchrone
+httpx==0.27.2             # Remplace requests, supporte async/await
+
+# Base de données
+motor==3.5.1              # Driver MongoDB asynchrone (basé sur PyMongo)
+
+# Variables d'environnement
+python-dotenv==1.0.1      # Lecture du fichier .env
+
+# Utilitaires
+python-dateutil==2.9.0    # Manipulation de dates (fuseaux horaires)
