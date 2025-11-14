@@ -1,0 +1,26 @@
+{
+  "pagination": {
+    "offset": 0,
+    "limit": 1,
+    "count": 1,
+    "total": 6711
+  },
+  "data": [
+    {
+      "id": "5514263",
+      "gmt": "-10",
+      "airport_id": "1",
+      "iata_code": "AAA",
+      "city_iata_code": "AAA",
+      "icao_code": "NTGA",
+      "country_iso2": "PF",
+      "geoname_id": "6947726",
+      "latitude": "-17.05",
+      "longitude": "-145.41667",
+      "airport_name": "Anaa",
+      "country_name": "French Polynesia",
+      "phone_number": null,
+      "timezone": "Pacific/Tahiti"
+    }
+  ]
+}
