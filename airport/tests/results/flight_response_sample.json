@@ -1,0 +1,63 @@
+{
+  "pagination": {
+    "limit": 1,
+    "offset": 0,
+    "count": 1,
+    "total": 77487
+  },
+  "data": [
+    {
+      "flight_date": "2025-11-14",
+      "flight_status": "scheduled",
+      "departure": {
+        "airport": "Bilbao",
+        "timezone": "Europe/Madrid",
+        "iata": "BIO",
+        "icao": "LEBB",
+        "terminal": null,
+        "gate": null,
+        "delay": null,
+        "scheduled": null,
+        "estimated": null,
+        "actual": null,
+        "estimated_runway": null,
+        "actual_runway": null
+      },
+      "arrival": {
+        "airport": "Barajas",
+        "timezone": "Europe/Madrid",
+        "iata": "MAD",
+        "icao": "LEMD",
+        "terminal": null,
+        "gate": null,
+        "baggage": null,
+        "scheduled": null,
+        "delay": null,
+        "estimated": null,
+        "actual": null,
+        "estimated_runway": null,
+        "actual_runway": null
+      },
+      "airline": {
+        "name": "American Airlines",
+        "iata": "AA",
+        "icao": "AAL"
+      },
+      "flight": {
+        "number": "8827",
+        "iata": "AA8827",
+        "icao": "AAL8827",
+        "codeshared": {
+          "airline_name": "iberia",
+          "airline_iata": "ib",
+          "airline_icao": "ibe",
+          "flight_number": "442",
+          "flight_iata": "ib442",
+          "flight_icao": "ibe442"
+        }
+      },
+      "aircraft": null,
+      "live": null
+    }
+  ]
+}
