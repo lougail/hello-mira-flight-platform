@@ -1,19 +1,36 @@
-# Framework Web Asynchrone
-fastapi==0.115.0          # Framework moderne avec validation auto et docs Swagger
-uvicorn[standard]==0.30.6 # Serveur ASGI performant pour FastAPI
+# ============================================================================
+# CORE - FastAPI et serveur
+# ============================================================================
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
 
-# Validation et Configuration
-pydantic==2.9.2           # Validation de données avec type hints
-pydantic-settings==2.5.2  # Gestion des variables d'environnement
+# ============================================================================
+# VALIDATION & CONFIGURATION
+# ============================================================================
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
 
-# Client HTTP Asynchrone
-httpx==0.27.2             # Remplace requests, supporte async/await
+# ============================================================================
+# HTTP CLIENT
+# ============================================================================
+httpx==0.25.2
 
-# Base de données
-motor==3.5.1              # Driver MongoDB asynchrone (basé sur PyMongo)
+# ============================================================================
+# BASE DE DONNÉES
+# ============================================================================
+motor==3.3.2          # MongoDB async driver
+pymongo==4.6.0        # Dépendance de motor
 
-# Variables d'environnement
-python-dotenv==1.0.1      # Lecture du fichier .env
+# ============================================================================
+# DÉVELOPPEMENT & TESTS
+# ============================================================================
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
 
-# Utilitaires
-python-dateutil==2.9.0    # Manipulation de dates (fuseaux horaires)
+# ============================================================================
+# OPTIONNEL - Monitoring & Observabilité (Partie 3)
+# ============================================================================
+# prometheus-client==0.19.0
+# opentelemetry-api==1.21.0
