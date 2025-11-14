@@ -34,7 +34,7 @@ class CacheService:
         Initialise le service de cache.
         
         Args:
-            collection: Collection MongoDB (motor AsyncIOMotorCollection)
+            collection: Collection MongoDB (PyMongo AsyncMongoClient collection)
             ttl: Time To Live en secondes (défaut: 5 minutes)
         """
         self.collection = collection
