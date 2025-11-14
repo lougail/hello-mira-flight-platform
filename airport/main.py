@@ -22,7 +22,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 from config.settings import settings
 from clients.aviationstack_client import AviationstackClient
@@ -53,7 +53,7 @@ aviationstack_client: Optional[AviationstackClient] = None
 cache_service: Optional[CacheService] = None
 geocoding_service: Optional[GeocodingService] = None
 airport_service: Optional[AirportService] = None
-mongo_client: Optional[AsyncIOMotorClient] = None
+mongo_client: Optional[AsyncMongoClient] = None
 
 
 # ============================================================================
@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
     # 1. Connecte MongoDB
     try:
         logger.info(f"📦 Connecting to MongoDB: {settings.mongodb_uri_safe}")
-        mongo_client = AsyncIOMotorClient(
+        mongo_client = AsyncMongoClient(
             settings.mongodb_url,
             serverSelectionTimeoutMS=settings.mongodb_timeout
         )
@@ -120,7 +120,7 @@ async def lifespan(app: FastAPI):
     cache_service = CacheService(
         collection=cache_collection,
         ttl=settings.cache_ttl
-    ) if cache_collection else None
+    ) if cache_collection is not None else None
     
     geocoding_service = GeocodingService()
     
@@ -160,7 +160,7 @@ async def lifespan(app: FastAPI):
     
     # Ferme MongoDB
     if mongo_client:
-        mongo_client.close()
+        await mongo_client.close()
         logger.info("✅ MongoDB connection closed")
     
     logger.info("=" * 70)
