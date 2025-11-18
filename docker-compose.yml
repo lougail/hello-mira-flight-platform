@@ -1,0 +1,180 @@
+# ============================================================================
+# DOCKER COMPOSE - Hello Mira Flight Platform
+# ============================================================================
+#
+# Orchestration complete du systeme :
+# - MongoDB (base de donnees + cache)
+# - Airport microservice (API REST)
+#
+# Usage :
+#   docker-compose up -d              # Demarre en background
+#   docker-compose logs -f airport    # Logs en temps reel
+#   docker-compose down               # Arrete tout
+#   docker-compose down -v            # Arrete + supprime volumes
+#
+# Prerequis :
+#   - Fichier .env a la racine avec :
+#     AVIATIONSTACK_API_KEY=xxx
+#     MONGO_PASSWORD=xxx
+#
+# ============================================================================
+
+# ============================================================================
+# SERVICES
+# ============================================================================
+
+services:
+  # ==========================================================================
+  # MongoDB - Base de donnees et cache
+  # ==========================================================================
+  mongo:
+    image: mongo:7.0
+    container_name: hello-mira-mongo
+    restart: unless-stopped
+
+    # Variables d'environnement
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: hello_mira
+
+    # Ports exposes (optionnel pour debug)
+    ports:
+      - "27017:27017"
+
+    # Volume persistant pour les donnees
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+
+    # Health check
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/hello_mira --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+    # Reseau dedie
+    networks:
+      - hello-mira-network
+
+    # Logging limite
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================================================
+  # Airport - Microservice de recherche d'aeroports
+  # ==========================================================================
+  airport:
+    build:
+      context: ./airport
+      dockerfile: Dockerfile
+
+    image: hello-mira/airport:latest
+    container_name: hello-mira-airport
+    restart: unless-stopped
+
+    # Dependances
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+    # Variables d'environnement
+    environment:
+      # API Aviationstack
+      AVIATIONSTACK_API_KEY: ${AVIATIONSTACK_API_KEY}
+
+      # MongoDB (avec authentification)
+      MONGODB_URL: mongodb://admin:${MONGO_PASSWORD}@mongo:27017
+      MONGODB_DATABASE: hello_mira
+      MONGODB_TIMEOUT: 5000
+
+      # Cache
+      CACHE_TTL: 300
+
+      # Application
+      DEBUG: "false"
+
+      # CORS (pour le frontend React)
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
+
+    # Ports exposes
+    ports:
+      - "8001:8001"
+
+    # Health check (herite du Dockerfile + override)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; exit(0 if httpx.get('http://localhost:8001/api/v1/health').status_code == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Reseau dedie
+    networks:
+      - hello-mira-network
+
+    # Logging limite
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+
+networks:
+  hello-mira-network:
+    name: hello-mira-network
+    driver: bridge
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+
+volumes:
+  mongo_data:
+    name: hello-mira-mongo-data
+  mongo_config:
+    name: hello-mira-mongo-config
+
+# ============================================================================
+# NOTES TECHNIQUES
+# ============================================================================
+#
+# Architecture :
+# - Reseau bridge dedie (hello-mira-network)
+# - Volume nomme pour persistance MongoDB
+# - Health checks sur tous les services
+# - Restart policy : unless-stopped (redemarre sauf si arret manuel)
+# - Logging rotatif (10MB max, 3 fichiers)
+#
+# Securite :
+# - MongoDB avec authentification admin
+# - Secrets via .env (pas de hardcoding)
+# - Container airport tourne en user non-root (UID 1000)
+#
+# Performance :
+# - MongoDB 7.0 (derniere version stable)
+# - Healthcheck intelligent avec start_period pour eviter false negatives
+# - Cache TTL configurable (300s par defaut)
+#
+# Evolutivite :
+# - Pret pour ajout microservice Flight
+# - Pret pour ajout microservice Assistant
+# - Pret pour ajout frontend React
+#
+# Commandes utiles :
+#   docker-compose up --build        # Rebuild + start
+#   docker-compose ps                # Etat des services
+#   docker-compose exec mongo mongosh # Shell MongoDB
+#   docker-compose exec airport sh   # Shell dans container airport
+#   docker-compose logs --tail=100   # 100 dernieres lignes de logs
+#
+# ============================================================================
