@@ -57,7 +57,7 @@ class CacheService:
             ... else:
             ...     print("Cache miss")
         """
-        if not self.collection:
+        if self.collection is None:
             return None
             
         try:
@@ -96,7 +96,7 @@ class CacheService:
             ...     {"name": "Charles de Gaulle", "iata": "CDG"}
             ... )
         """
-        if not self.collection:
+        if self.collection is None:
             return
             
         try:
@@ -128,7 +128,7 @@ class CacheService:
         Example:
             >>> await cache.delete("airport:CDG")
         """
-        if not self.collection:
+        if self.collection is None:
             return
             
         try:
@@ -144,7 +144,7 @@ class CacheService:
         Example:
             >>> await cache.clear_all()
         """
-        if not self.collection:
+        if self.collection is None:
             return
             
         try:
