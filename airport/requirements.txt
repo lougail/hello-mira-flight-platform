@@ -1,19 +1,36 @@
-# Framework Web Asynchrone
-fastapi==0.115.0          # Framework moderne avec validation auto et docs Swagger
-uvicorn[standard]==0.30.6 # Serveur ASGI performant pour FastAPI
+# ============================================================================
+# REQUIREMENTS.TXT - Hello Mira Flight Platform
+# Dernière vérification : 14 novembre 2025
+# Stack : FastAPI + PyMongo Async + httpx
+# ============================================================================
 
-# Validation et Configuration
-pydantic==2.9.2           # Validation de données avec type hints
-pydantic-settings==2.5.2  # Gestion des variables d'environnement
+# ============================================================================
+# CORE - FastAPI et Serveur ASGI
+# ============================================================================
+fastapi==0.121.2              # 13 nov 2025 - Framework web moderne avec validation auto
+uvicorn[standard]==0.38.0     # 18 oct 2025 - Serveur ASGI performant avec uvloop
 
-# Client HTTP Asynchrone
-httpx==0.27.2             # Remplace requests, supporte async/await
+# ============================================================================
+# VALIDATION & CONFIGURATION
+# ============================================================================
+pydantic==2.12.4              # 5 nov 2025 - Validation de données avec type hints
+pydantic-settings==2.12.0     # 10 nov 2025 - Gestion des variables d'environnement
+python-dotenv==1.0.1          # Lecture du fichier .env
 
-# Base de données
-motor==3.5.1              # Driver MongoDB asynchrone (basé sur PyMongo)
+# ============================================================================
+# HTTP CLIENT ASYNCHRONE
+# ============================================================================
+httpx==0.28.1                 # Nov 2025 - Client HTTP async (remplace requests)
 
-# Variables d'environnement
-python-dotenv==1.0.1      # Lecture du fichier .env
+# ============================================================================
+# BASE DE DONNÉES - PyMongo Async API (Recommandé par MongoDB)
+# ============================================================================
+pymongo==4.15.4               # 11 nov 2025 - Driver MongoDB avec API async native
+                              # Remplace Motor (deprecated mai 2025)
 
-# Utilitaires
-python-dateutil==2.9.0    # Manipulation de dates (fuseaux horaires)
+# ============================================================================
+# DÉVELOPPEMENT & TESTS
+# ============================================================================
+pytest==9.0.1                 # 12 nov 2025 - Framework de tests Python
+pytest-asyncio==1.3.0         # 10 nov 2025 - Support async/await pour pytest
+pytest-mock==3.15.1           # 16 sep 2025 - Wrapper pytest pour unittest.mock
