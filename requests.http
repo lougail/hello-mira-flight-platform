@@ -1,0 +1,176 @@
+# ============================================================================
+# HELLO MIRA - Airport API - Collection de requetes HTTP
+# ============================================================================
+#
+# Utilisation :
+#   - VSCode : Installer l'extension "REST Client"
+#   - Cliquer sur "Send Request" au-dessus de chaque requete
+#   - Ou utiliser curl en ligne de commande
+#
+# Prerequis :
+#   - Docker Compose lance : docker-compose up
+#   - API disponible sur http://localhost:8001
+#
+# ============================================================================
+
+@baseUrl = http://localhost:8001/api/v1
+
+# ============================================================================
+# HEALTH CHECK
+# ============================================================================
+
+### Health Check - Verifie que l'API est demarree
+GET {{baseUrl}}/health
+
+# ============================================================================
+# PARTIE 1 - RECHERCHE D'AEROPORTS
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 1. Recherche par code IATA (ex: CDG, JFK, LHR)
+# ----------------------------------------------------------------------------
+
+### Aeroport Charles de Gaulle (Paris)
+GET {{baseUrl}}/airports/CDG
+
+### Aeroport JFK (New York)
+GET {{baseUrl}}/airports/JFK
+
+### Aeroport Heathrow (Londres)
+GET {{baseUrl}}/airports/LHR
+
+
+# ----------------------------------------------------------------------------
+# 2. Recherche par nom ou ville
+# ----------------------------------------------------------------------------
+
+### Recherche par nom "Paris"
+GET {{baseUrl}}/airports/search?name=Paris
+
+### Recherche par nom "London"
+GET {{baseUrl}}/airports/search?name=London
+
+### Recherche par nom "Tokyo"
+GET {{baseUrl}}/airports/search?name=Tokyo
+
+
+# ----------------------------------------------------------------------------
+# 3. Recherche par coordonnees GPS (proximite)
+# ----------------------------------------------------------------------------
+
+### Aeroport le plus proche de Paris (Latitude: 48.8566, Longitude: 2.3522)
+GET {{baseUrl}}/airports/nearest?lat=48.8566&lon=2.3522&radius=50
+
+### Aeroport le plus proche de New York (Latitude: 40.7128, Longitude: -74.0060)
+GET {{baseUrl}}/airports/nearest?lat=40.7128&lon=-74.0060&radius=50
+
+### Aeroport le plus proche de Tokyo (Latitude: 35.6762, Longitude: 139.6503)
+GET {{baseUrl}}/airports/nearest?lat=35.6762&lon=139.6503&radius=50
+
+
+# ----------------------------------------------------------------------------
+# 4. Recherche par adresse (geocodage automatique)
+# ----------------------------------------------------------------------------
+
+### Aeroport le plus proche de "Tour Eiffel, Paris"
+GET {{baseUrl}}/airports/nearest?address=Tour Eiffel, Paris&radius=50
+
+### Aeroport le plus proche de "Times Square, New York"
+GET {{baseUrl}}/airports/nearest?address=Times Square, New York&radius=100
+
+### Aeroport le plus proche de "Big Ben, London"
+GET {{baseUrl}}/airports/nearest?address=Big Ben, London&radius=50
+
+
+# ============================================================================
+# PARTIE 2 - VOLS AU DEPART ET A L'ARRIVEE
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 1. Vols au depart d'un aeroport
+# ----------------------------------------------------------------------------
+
+### Vols au depart de CDG (limite 10)
+GET {{baseUrl}}/airports/CDG/departures?limit=10
+
+### Vols au depart de JFK (limite 20)
+GET {{baseUrl}}/airports/JFK/departures?limit=20
+
+### Vols au depart de LHR avec pagination (offset 10, limite 5)
+GET {{baseUrl}}/airports/LHR/departures?limit=5&offset=10
+
+
+# ----------------------------------------------------------------------------
+# 2. Vols a l'arrivee d'un aeroport
+# ----------------------------------------------------------------------------
+
+### Vols a l'arrivee de CDG (limite 10)
+GET {{baseUrl}}/airports/CDG/arrivals?limit=10
+
+### Vols a l'arrivee de JFK (limite 20)
+GET {{baseUrl}}/airports/JFK/arrivals?limit=20
+
+### Vols a l'arrivee de LHR avec pagination (offset 10, limite 5)
+GET {{baseUrl}}/airports/LHR/arrivals?limit=5&offset=10
+
+
+# ============================================================================
+# TESTS DE CAS LIMITES
+# ============================================================================
+
+### Code IATA inexistant (doit retourner 404)
+GET {{baseUrl}}/airports/XXX
+
+### Coordonnees GPS invalides (doit retourner 400)
+GET {{baseUrl}}/airports/nearest?lat=200&lon=300
+
+### Adresse introuvable (doit retourner 404)
+GET {{baseUrl}}/airports/nearest?address=adresse_inexistante_12345
+
+### Pagination limite excessive (doit etre capee a 100)
+GET {{baseUrl}}/airports/CDG/departures?limit=1000
+
+
+# ============================================================================
+# TESTS DE CACHE (relancer 2 fois pour voir cache hit)
+# ============================================================================
+
+### 1ere requete - Cache MISS (appel API externe)
+GET {{baseUrl}}/airports/CDG
+
+### 2eme requete - Cache HIT (depuis MongoDB, plus rapide)
+GET {{baseUrl}}/airports/CDG
+
+
+# ============================================================================
+# DOCUMENTATION API
+# ============================================================================
+
+### Swagger UI (interface interactive)
+# Ouvrir dans le navigateur : http://localhost:8001/docs
+
+### ReDoc (documentation alternative)
+# Ouvrir dans le navigateur : http://localhost:8001/redoc
+
+### Schema OpenAPI JSON
+# GET http://localhost:8001/openapi.json
+
+
+# ============================================================================
+# NOTES
+# ============================================================================
+#
+# Endpoints implementes (Partie 1 - Microservice Airport) :
+#
+# GET  /api/v1/health                              - Health check
+# GET  /api/v1/airports/{iata}                     - Recherche par code IATA
+# GET  /api/v1/airports/search?name={name}         - Recherche par nom
+# GET  /api/v1/airports/nearest?lat={lat}&lon={lon} - Recherche par GPS
+# GET  /api/v1/airports/nearest?address={address}  - Recherche par adresse
+# GET  /api/v1/airports/{iata}/departures          - Vols au depart
+# GET  /api/v1/airports/{iata}/arrivals            - Vols a l'arrivee
+#
+# Tous les endpoints supportent la pagination avec ?limit= et ?offset=
+# Le cache MongoDB a un TTL de 300s (5 minutes) configurable
+#
+# ============================================================================
