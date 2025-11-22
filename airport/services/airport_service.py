@@ -232,7 +232,84 @@ class AirportService:
             coords[1],
             country_code=country_code
         )
-    
+
+    async def search_airports_by_location(
+        self,
+        location_name: str,
+        country_code: str,
+        limit: int = 10
+    ) -> List[Airport]:
+        """
+        Recherche des aéroports par nom de lieu (ville, région, etc.).
+
+        Utilise le géocodage OpenStreetMap pour trouver les coordonnées,
+        puis retourne les aéroports proches triés par distance.
+
+        Args:
+            location_name: Nom du lieu (ex: "Paris", "Lyon", "Provence")
+            country_code: Code pays ISO (ex: "FR")
+            limit: Nombre max de résultats (défaut: 10)
+
+        Returns:
+            Liste d'aéroports triés par distance (peut être vide)
+
+        Example:
+            >>> airports = await service.search_airports_by_location("Paris", "FR", limit=5)
+            >>> for ap in airports:
+            ...     print(f"{ap.iata_code}: {ap.name}")
+        """
+        # 1. Géocode le nom de lieu
+        search_query = f"{location_name} airport, {country_code}"
+        logger.info(f"Géocodage de : {search_query}")
+
+        coords = await self.geocoding.geocode_address(search_query)
+
+        if not coords:
+            logger.warning(f"Impossible de géocoder : {search_query}")
+            # Fallback: essayer sans "airport"
+            coords = await self.geocoding.geocode_address(f"{location_name}, {country_code}")
+
+            if not coords:
+                logger.error(f"Géocodage échoué pour : {location_name}")
+                return []
+
+        latitude, longitude = coords
+        logger.info(f"Coordonnées trouvées : ({latitude}, {longitude})")
+
+        # 2. Récupère les aéroports du pays
+        airports = await self.client.search_airports(
+            country=country_code,
+            limit=100  # Récupère plus pour filtrer ensuite
+        )
+
+        if not airports:
+            logger.warning(f"Aucun aéroport trouvé pour {country_code}")
+            return []
+
+        # 3. Calcule la distance pour chaque aéroport
+        airports_with_distance = []
+        for airport in airports:
+            distance = self.geocoding.calculate_distance(
+                latitude,
+                longitude,
+                airport.coordinates.latitude,
+                airport.coordinates.longitude
+            )
+            airports_with_distance.append((airport, distance))
+
+        # 4. Trie par distance croissante
+        airports_with_distance.sort(key=lambda x: x[1])
+
+        # 5. Retourne les N premiers
+        result = [airport for airport, _ in airports_with_distance[:limit]]
+
+        logger.info(
+            f"Trouvé {len(result)} aéroports près de {location_name} "
+            f"(premier: {result[0].iata_code if result else 'N/A'})"
+        )
+
+        return result
+
     # ========================================================================
     # VOLS (DÉPARTS ET ARRIVÉES)
     # ========================================================================

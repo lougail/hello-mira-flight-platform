@@ -6,8 +6,8 @@ Plateforme de microservices pour la recherche d'aéroports et le suivi de vols e
 
 Le système est composé de microservices indépendants :
 
-- **Airport** : Recherche d'aéroports et consultation des vols au départ/arrivée
-- **Flight** : Suivi individuel de vols (en développement)
+- **Airport** (port 8001) : Recherche d'aéroports et consultation des vols au départ/arrivée
+- **Flight** (port 8002) : Suivi individuel de vols avec historique et statistiques
 - **Assistant** : Interface en langage naturel (en développement)
 
 ## Prérequis
@@ -37,7 +37,9 @@ MONGO_PASSWORD=un_mot_de_passe_securise
 docker-compose up
 ```
 
-L'API Airport sera disponible sur `http://localhost:8001`
+Les APIs seront disponibles sur :
+- Airport : `http://localhost:8001`
+- Flight : `http://localhost:8002`
 
 ## Utilisation
 
@@ -45,50 +47,98 @@ L'API Airport sera disponible sur `http://localhost:8001`
 
 Une fois l'application lancée, la documentation Swagger est accessible sur :
 
+**Airport :**
 - Swagger UI : http://localhost:8001/docs
 - ReDoc : http://localhost:8001/redoc
 
+**Flight :**
+- Swagger UI : http://localhost:8002/docs
+- ReDoc : http://localhost:8002/redoc
+
 ### Endpoints disponibles
 
-#### Recherche d'aéroports
+#### Microservice Airport (port 8001)
+
+**Recherche d'aéroports**
 
 ```bash
 # Par code IATA
 GET /api/v1/airports/{iata}
+# Exemple : GET /api/v1/airports/CDG
 
-# Par nom ou ville
-GET /api/v1/airports/search?name={query}
+# Par nom de lieu (ville, région)
+GET /api/v1/airports/search?name={query}&country_code={code}
+# Exemple : GET /api/v1/airports/search?name=Paris&country_code=FR
 
 # Par coordonnées GPS
-GET /api/v1/airports/nearest?lat={latitude}&lon={longitude}&radius={km}
+GET /api/v1/airports/nearest-by-coords?latitude={lat}&longitude={lon}&country_code={code}
+# Exemple : GET /api/v1/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FR
 
 # Par adresse (avec géocodage automatique)
-GET /api/v1/airports/nearest?address={adresse}&radius={km}
+GET /api/v1/airports/nearest-by-address?address={address}&country_code={code}
+# Exemple : GET /api/v1/airports/nearest-by-address?address=Lille,France&country_code=FR
 ```
 
-#### Vols
+**Vols au départ et à l'arrivée**
 
 ```bash
-# Vols au départ
+# Vols au départ d'un aéroport
 GET /api/v1/airports/{iata}/departures?limit=10&offset=0
+# Exemple : GET /api/v1/airports/CDG/departures?limit=20
 
-# Vols à l'arrivée
+# Vols à l'arrivée d'un aéroport
 GET /api/v1/airports/{iata}/arrivals?limit=10&offset=0
+# Exemple : GET /api/v1/airports/CDG/arrivals?limit=20
+```
+
+#### Suivi de vols (Flight)
+
+```bash
+# Statut en temps réel d'un vol
+GET /api/v1/flights/{flight_iata}
+
+# Historique d'un vol sur une période
+GET /api/v1/flights/{flight_iata}/history?start_date=2025-11-01&end_date=2025-11-14
+
+# Statistiques agrégées d'un vol
+GET /api/v1/flights/{flight_iata}/statistics?start_date=2025-11-01&end_date=2025-11-14
 ```
 
 ### Exemples
 
 Le fichier `requests.http` à la racine contient des exemples prêts à l'emploi. Utilisable avec l'extension VSCode REST Client ou avec curl.
 
+**Exemples Airport :**
 ```bash
-# Recherche de l'aéroport CDG
+# Recherche de l'aéroport CDG par code IATA
 curl http://localhost:8001/api/v1/airports/CDG
 
-# Vols au départ de CDG
-curl http://localhost:8001/api/v1/airports/CDG/departures?limit=10
+# Recherche d'aéroports par nom de lieu
+curl "http://localhost:8001/api/v1/airports/search?name=Paris&country_code=FR"
 
-# Aéroport le plus proche de Paris
-curl "http://localhost:8001/api/v1/airports/nearest?lat=48.8566&lon=2.3522&radius=50"
+# Aéroport le plus proche de coordonnées GPS
+curl "http://localhost:8001/api/v1/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FR"
+
+# Aéroport le plus proche d'une adresse
+curl "http://localhost:8001/api/v1/airports/nearest-by-address?address=Lille,France&country_code=FR"
+
+# Vols au départ de CDG
+curl "http://localhost:8001/api/v1/airports/CDG/departures?limit=10"
+
+# Vols à l'arrivée à CDG
+curl "http://localhost:8001/api/v1/airports/CDG/arrivals?limit=10"
+```
+
+**Exemples Flight :**
+```bash
+# Statut en temps réel du vol AF447
+curl http://localhost:8002/api/v1/flights/AF447
+
+# Historique sur 7 jours
+curl "http://localhost:8002/api/v1/flights/AF447/history?start_date=2025-11-01&end_date=2025-11-07"
+
+# Statistiques sur 30 jours
+curl "http://localhost:8002/api/v1/flights/AF447/statistics?start_date=2025-10-15&end_date=2025-11-14"
 ```
 
 ## Développement
@@ -110,6 +160,18 @@ hello-mira-flight-platform/
 │   ├── Dockerfile
 │   ├── main.py            # Point d'entrée
 │   └── requirements.txt
+├── flight/                  # Microservice Flight
+│   ├── api/                # Routes FastAPI
+│   │   └── routes/
+│   ├── clients/            # Client API Aviationstack (partagé)
+│   ├── config/             # Configuration et settings
+│   ├── models/             # Modèles Pydantic
+│   │   └── domain/        # Modèles métier (partagés avec Airport)
+│   ├── services/           # Logique métier (FlightService)
+│   ├── tests/             # Tests unitaires
+│   ├── Dockerfile
+│   ├── main.py            # Point d'entrée
+│   └── requirements.txt
 ├── docker-compose.yml
 ├── requests.http          # Collection de requêtes de test
 └── README.md
@@ -117,6 +179,7 @@ hello-mira-flight-platform/
 
 ### Lancement en mode développement
 
+**Airport (port 8001) :**
 ```bash
 cd airport
 python -m venv venv
@@ -125,12 +188,26 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 8001
 ```
 
+**Flight (port 8002) :**
+```bash
+cd flight
+python -m venv venv
+source venv/bin/activate  # Sur Windows : venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8002
+```
+
 MongoDB doit être accessible sur `mongodb://localhost:27017` ou modifier `MONGODB_URL` dans `.env`.
 
 ### Tests
 
 ```bash
+# Tests Airport
 cd airport
+pytest
+
+# Tests Flight
+cd flight
 pytest
 ```
 
@@ -172,11 +249,68 @@ CACHE_TTL=300
 DEBUG=false
 ```
 
+## Intégration avec l'assistant conversationnel (Partie 4)
+
+Le microservice Airport est conçu pour être facilement consommé par l'assistant IA. Exemples de mapping prompts → endpoints :
+
+| Prompt utilisateur | Endpoint à appeler | Traitement assistant |
+|-------------------|-------------------|---------------------|
+| "Trouve-moi l'aéroport le plus proche de Lille" | `GET /airports/nearest-by-address?address=Lille,France&country_code=FR` | Extraction : lieu + pays |
+| "Quels vols partent de CDG cet après-midi ?" | `GET /airports/CDG/departures?limit=100` | Extraction : code IATA<br>Filtrage : horaires 14h-18h |
+| "Aéroports près de 48.8566, 2.3522" | `GET /airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FR` | Extraction : coords + pays |
+| "Cherche aéroports à Paris" | `GET /airports/search?name=Paris&country_code=FR` | Extraction : lieu + pays |
+
+**Points forts pour l'IA :**
+- ✅ Endpoints explicites et prévisibles
+- ✅ Réponses structurées (JSON Pydantic)
+- ✅ Tous les horaires en ISO 8601
+- ✅ country_code systématique (réduit les ambiguïtés)
+- ✅ Pagination pour grandes listes
+
+## Choix architecturaux
+
+### Recherche d'aéroports par nom (OpenStreetMap)
+
+Le plan Basic d'Aviationstack ne supporte pas le paramètre `search` (retourne 403 Forbidden). Pour contourner cette limitation :
+
+1. **Géocodage du nom de lieu** via Nominatim (OpenStreetMap)
+   - Exemple : "Paris" → coordonnées GPS (48.8566, 2.3522)
+2. **Récupération des aéroports** du pays via Aviationstack
+3. **Calcul de distance** avec formule de Haversine
+4. **Tri par proximité** au lieu géocodé
+
+**Avantages :**
+- ✅ Fonctionne avec villes, régions, quartiers
+- ✅ Tolérant aux variations de noms
+- ✅ Résultats triés par pertinence géographique
+
+### Séparation des endpoints `/nearest`
+
+Deux endpoints distincts au lieu d'un seul avec paramètres mutuellement exclusifs :
+- `/airports/nearest-by-coords` : Pour coordonnées GPS précises
+- `/airports/nearest-by-address` : Pour adresses textuelles (géocodage inclus)
+
+**Avantages :**
+- ✅ API plus explicite et RESTful
+- ✅ Documentation plus claire
+- ✅ Validation de paramètres simplifiée
+
+### Cache MongoDB avec TTL
+
+Réduction des appels à l'API externe (limite de 100 req/mois sur plan gratuit) :
+- TTL par défaut : 300s (5 minutes)
+- Collections séparées : `airport_cache`, `flight_cache`
+- Logs de hit-rate pour monitoring
+
 ## Limites connues
 
-- L'API Aviationstack gratuite limite à 100 requêtes/mois
-- Le géocodage Nominatim demande 1 seconde entre chaque requête (rate limiting)
-- Le plan gratuit d'Aviationstack ne donne pas accès aux données historiques
+- **API Aviationstack gratuite** : 100 requêtes/mois maximum
+- **Géocodage Nominatim** : 1 seconde entre chaque requête (rate limiting)
+- **Plan Basic Aviationstack** :
+  - Pas de paramètre `search` pour les aéroports
+  - Pas de `flight_date` seul pour l'historique
+  - Pas de combinaison `flight_iata` + `flight_date`
+- **country_code requis** : Pour éviter les ambiguïtés géographiques
 
 ## Licence
 

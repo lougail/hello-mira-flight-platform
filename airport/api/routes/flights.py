@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/airports",
-    tags=["Flights"],
+    tags=["Airport Flights"],
     responses={
         404: {"model": ErrorResponse, "description": "Airport not found"},
         500: {"model": ErrorResponse, "description": "Internal server error"}
