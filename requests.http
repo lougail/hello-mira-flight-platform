@@ -1,5 +1,5 @@
 # ============================================================================
-# HELLO MIRA - Airport API - Collection de requetes HTTP
+# HELLO MIRA - Collection de requetes HTTP
 # ============================================================================
 #
 # Utilisation :
@@ -9,18 +9,23 @@
 #
 # Prerequis :
 #   - Docker Compose lance : docker-compose up
-#   - API disponible sur http://localhost:8001
+#   - Airport API : http://localhost:8001
+#   - Flight API : http://localhost:8002
 #
 # ============================================================================
 
-@baseUrl = http://localhost:8001/api/v1
+@airportUrl = http://localhost:8001/api/v1
+@flightUrl = http://localhost:8002/api/v1
 
 # ============================================================================
 # HEALTH CHECK
 # ============================================================================
 
-### Health Check - Verifie que l'API est demarree
-GET {{baseUrl}}/health
+### Health Check - Airport API
+GET {{airportUrl}}/health
+
+### Health Check - Flight API
+GET {{flightUrl}}/health
 
 # ============================================================================
 # PARTIE 1 - RECHERCHE D'AEROPORTS
@@ -31,13 +36,13 @@ GET {{baseUrl}}/health
 # ----------------------------------------------------------------------------
 
 ### Aeroport Charles de Gaulle (Paris)
-GET {{baseUrl}}/airports/CDG
+GET {{airportUrl}}/airports/CDG
 
 ### Aeroport JFK (New York)
-GET {{baseUrl}}/airports/JFK
+GET {{airportUrl}}/airports/JFK
 
 ### Aeroport Heathrow (Londres)
-GET {{baseUrl}}/airports/LHR
+GET {{airportUrl}}/airports/LHR
 
 
 # ----------------------------------------------------------------------------
@@ -45,13 +50,13 @@ GET {{baseUrl}}/airports/LHR
 # ----------------------------------------------------------------------------
 
 ### Recherche par nom "Paris"
-GET {{baseUrl}}/airports/search?name=Paris
+GET {{airportUrl}}/airports/search?name=Paris
 
 ### Recherche par nom "London"
-GET {{baseUrl}}/airports/search?name=London
+GET {{airportUrl}}/airports/search?name=London
 
 ### Recherche par nom "Tokyo"
-GET {{baseUrl}}/airports/search?name=Tokyo
+GET {{airportUrl}}/airports/search?name=Tokyo
 
 
 # ----------------------------------------------------------------------------
@@ -59,13 +64,13 @@ GET {{baseUrl}}/airports/search?name=Tokyo
 # ----------------------------------------------------------------------------
 
 ### Aeroport le plus proche de Paris (Latitude: 48.8566, Longitude: 2.3522)
-GET {{baseUrl}}/airports/nearest?lat=48.8566&lon=2.3522&radius=50
+GET {{airportUrl}}/airports/nearest?lat=48.8566&lon=2.3522&radius=50
 
 ### Aeroport le plus proche de New York (Latitude: 40.7128, Longitude: -74.0060)
-GET {{baseUrl}}/airports/nearest?lat=40.7128&lon=-74.0060&radius=50
+GET {{airportUrl}}/airports/nearest?lat=40.7128&lon=-74.0060&radius=50
 
 ### Aeroport le plus proche de Tokyo (Latitude: 35.6762, Longitude: 139.6503)
-GET {{baseUrl}}/airports/nearest?lat=35.6762&lon=139.6503&radius=50
+GET {{airportUrl}}/airports/nearest?lat=35.6762&lon=139.6503&radius=50
 
 
 # ----------------------------------------------------------------------------
@@ -73,13 +78,13 @@ GET {{baseUrl}}/airports/nearest?lat=35.6762&lon=139.6503&radius=50
 # ----------------------------------------------------------------------------
 
 ### Aeroport le plus proche de "Tour Eiffel, Paris"
-GET {{baseUrl}}/airports/nearest?address=Tour Eiffel, Paris&radius=50
+GET {{airportUrl}}/airports/nearest?address=Tour Eiffel, Paris&radius=50
 
 ### Aeroport le plus proche de "Times Square, New York"
-GET {{baseUrl}}/airports/nearest?address=Times Square, New York&radius=100
+GET {{airportUrl}}/airports/nearest?address=Times Square, New York&radius=100
 
 ### Aeroport le plus proche de "Big Ben, London"
-GET {{baseUrl}}/airports/nearest?address=Big Ben, London&radius=50
+GET {{airportUrl}}/airports/nearest?address=Big Ben, London&radius=50
 
 
 # ============================================================================
@@ -91,13 +96,13 @@ GET {{baseUrl}}/airports/nearest?address=Big Ben, London&radius=50
 # ----------------------------------------------------------------------------
 
 ### Vols au depart de CDG (limite 10)
-GET {{baseUrl}}/airports/CDG/departures?limit=10
+GET {{airportUrl}}/airports/CDG/departures?limit=10
 
 ### Vols au depart de JFK (limite 20)
-GET {{baseUrl}}/airports/JFK/departures?limit=20
+GET {{airportUrl}}/airports/JFK/departures?limit=20
 
 ### Vols au depart de LHR avec pagination (offset 10, limite 5)
-GET {{baseUrl}}/airports/LHR/departures?limit=5&offset=10
+GET {{airportUrl}}/airports/LHR/departures?limit=5&offset=10
 
 
 # ----------------------------------------------------------------------------
@@ -105,13 +110,13 @@ GET {{baseUrl}}/airports/LHR/departures?limit=5&offset=10
 # ----------------------------------------------------------------------------
 
 ### Vols a l'arrivee de CDG (limite 10)
-GET {{baseUrl}}/airports/CDG/arrivals?limit=10
+GET {{airportUrl}}/airports/CDG/arrivals?limit=10
 
 ### Vols a l'arrivee de JFK (limite 20)
-GET {{baseUrl}}/airports/JFK/arrivals?limit=20
+GET {{airportUrl}}/airports/JFK/arrivals?limit=20
 
 ### Vols a l'arrivee de LHR avec pagination (offset 10, limite 5)
-GET {{baseUrl}}/airports/LHR/arrivals?limit=5&offset=10
+GET {{airportUrl}}/airports/LHR/arrivals?limit=5&offset=10
 
 
 # ============================================================================
@@ -119,16 +124,70 @@ GET {{baseUrl}}/airports/LHR/arrivals?limit=5&offset=10
 # ============================================================================
 
 ### Code IATA inexistant (doit retourner 404)
-GET {{baseUrl}}/airports/XXX
+GET {{airportUrl}}/airports/XXX
 
 ### Coordonnees GPS invalides (doit retourner 400)
-GET {{baseUrl}}/airports/nearest?lat=200&lon=300
+GET {{airportUrl}}/airports/nearest?lat=200&lon=300
 
 ### Adresse introuvable (doit retourner 404)
-GET {{baseUrl}}/airports/nearest?address=adresse_inexistante_12345
+GET {{airportUrl}}/airports/nearest?address=adresse_inexistante_12345
 
 ### Pagination limite excessive (doit etre capee a 100)
-GET {{baseUrl}}/airports/CDG/departures?limit=1000
+GET {{airportUrl}}/airports/CDG/departures?limit=1000
+
+
+# ============================================================================
+# PARTIE 2 - SUIVI INDIVIDUEL DE VOLS
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 1. Statut en temps reel d'un vol
+# ----------------------------------------------------------------------------
+
+### Vol AF282 (Paris CDG -> Tokyo HND)
+GET {{flightUrl}}/flights/AF282
+
+### Vol MU6241 (vol chinois)
+GET {{flightUrl}}/flights/MU6241
+
+### Vol BA117 (British Airways)
+GET {{flightUrl}}/flights/BA117
+
+
+# ----------------------------------------------------------------------------
+# 2. Historique d'un vol sur une periode
+# ----------------------------------------------------------------------------
+
+### Historique AF282 (2 jours)
+GET {{flightUrl}}/flights/AF282/history?start_date=2025-11-21&end_date=2025-11-22
+
+### Historique MU6241 (3 jours)
+GET {{flightUrl}}/flights/MU6241/history?start_date=2025-11-20&end_date=2025-11-22
+
+
+# ----------------------------------------------------------------------------
+# 3. Statistiques agregeees sur une periode
+# ----------------------------------------------------------------------------
+
+### Statistiques AF282 (ponctualite, retards)
+GET {{flightUrl}}/flights/AF282/statistics?start_date=2025-11-21&end_date=2025-11-22
+
+### Statistiques MU6241
+GET {{flightUrl}}/flights/MU6241/statistics?start_date=2025-11-20&end_date=2025-11-22
+
+
+# ----------------------------------------------------------------------------
+# 4. Cas limites
+# ----------------------------------------------------------------------------
+
+### Vol inexistant (doit retourner 404)
+GET {{flightUrl}}/flights/XXXXX
+
+### Dates invalides (doit retourner 400)
+GET {{flightUrl}}/flights/AF282/history?start_date=2025-13-32&end_date=2025-11-22
+
+### Periode inversee (doit retourner 400)
+GET {{flightUrl}}/flights/AF282/history?start_date=2025-11-22&end_date=2025-11-21
 
 
 # ============================================================================
@@ -136,10 +195,10 @@ GET {{baseUrl}}/airports/CDG/departures?limit=1000
 # ============================================================================
 
 ### 1ere requete - Cache MISS (appel API externe)
-GET {{baseUrl}}/airports/CDG
+GET {{airportUrl}}/airports/CDG
 
 ### 2eme requete - Cache HIT (depuis MongoDB, plus rapide)
-GET {{baseUrl}}/airports/CDG
+GET {{airportUrl}}/airports/CDG
 
 
 # ============================================================================
@@ -160,17 +219,24 @@ GET {{baseUrl}}/airports/CDG
 # NOTES
 # ============================================================================
 #
-# Endpoints implementes (Partie 1 - Microservice Airport) :
+# Microservice Airport (port 8001) :
+#   GET  /api/v1/health                              - Health check
+#   GET  /api/v1/airports/{iata}                     - Recherche par code IATA
+#   GET  /api/v1/airports/search?name={name}         - Recherche par nom
+#   GET  /api/v1/airports/nearest?lat={lat}&lon={lon} - Recherche par GPS
+#   GET  /api/v1/airports/nearest?address={address}  - Recherche par adresse
+#   GET  /api/v1/airports/{iata}/departures          - Vols au depart
+#   GET  /api/v1/airports/{iata}/arrivals            - Vols a l'arrivee
 #
-# GET  /api/v1/health                              - Health check
-# GET  /api/v1/airports/{iata}                     - Recherche par code IATA
-# GET  /api/v1/airports/search?name={name}         - Recherche par nom
-# GET  /api/v1/airports/nearest?lat={lat}&lon={lon} - Recherche par GPS
-# GET  /api/v1/airports/nearest?address={address}  - Recherche par adresse
-# GET  /api/v1/airports/{iata}/departures          - Vols au depart
-# GET  /api/v1/airports/{iata}/arrivals            - Vols a l'arrivee
+# Microservice Flight (port 8002) :
+#   GET  /api/v1/health                              - Health check
+#   GET  /api/v1/flights/{iata}                      - Statut temps reel d'un vol
+#   GET  /api/v1/flights/{iata}/history              - Historique sur une periode
+#   GET  /api/v1/flights/{iata}/statistics           - Statistiques agregeees
 #
-# Tous les endpoints supportent la pagination avec ?limit= et ?offset=
-# Le cache MongoDB a un TTL de 300s (5 minutes) configurable
+# Optimisations :
+#   - Cache MongoDB avec TTL de 300s (5 minutes)
+#   - Historique construit progressivement (chaque appel stocke ~2 jours)
+#   - Statistiques : seuil retard > 15 min (standard aviation)
 #
 # ============================================================================
