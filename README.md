@@ -162,6 +162,54 @@ curl -X POST http://localhost:8003/api/v1/assistant/answer \
   -d '{"prompt": "Donne-moi les statistiques du vol BA117 sur les 30 derniers jours"}'
 ```
 
+### Mode DEMO
+
+Le microservice Assistant inclut un **mode DEMO** qui utilise des données mockées cohérentes au lieu d'appeler les vrais microservices Airport et Flight. Ce mode est utile pour :
+
+- 🎯 **Démonstration** sans dépendre du quota de l'API externe Aviationstack
+- 🧪 **Tests** de l'orchestration LangGraph et du function calling Mistral AI
+- 📊 **Présentation** avec des données prévisibles et cohérentes
+
+**Activation :**
+
+Le mode DEMO est activé par défaut dans docker-compose.yml via la variable `DEMO_MODE=true`.
+
+**Données mockées disponibles :**
+
+- ✈️ Vol AV15 (Bogotá → CDG, en vol avec retard de 18min)
+- ✈️ Vol AF282 (CDG → Tokyo, prévu dans 4h)
+- 🛫 5 vols au départ de CDG (AF007, EK073, VY8004, BA314, AF282)
+- 🏢 Aéroport de Lille (LIL) pour recherche par adresse
+
+**Exemples de prompts fonctionnels en mode DEMO :**
+```bash
+# Vol AV15 avec retard
+POST /api/v1/assistant/answer
+Body: {"prompt": "Je suis sur le vol AV15, à quelle heure vais-je arriver ?"}
+→ Réponse : Vol en cours, ETA 21h47 avec 18min de retard
+
+# Recherche aéroport Lille
+POST /api/v1/assistant/answer
+Body: {"prompt": "Trouve-moi l'aéroport le plus proche de Lille"}
+→ Réponse : Lille Airport (LIL) à 8.5km
+
+# Vols au départ de CDG
+POST /api/v1/assistant/answer
+Body: {"prompt": "Quels vols partent de CDG cet après-midi ?"}
+→ Réponse : 5 vols (AF007 vers JFK, EK073 vers Dubai, etc.)
+```
+
+**Désactivation :**
+
+Pour utiliser les vrais microservices, modifiez `docker-compose.yml` :
+
+```yaml
+environment:
+  DEMO_MODE: "false"  # Désactive le mode demo
+```
+
+Puis redémarrez : `docker compose restart assistant`
+
 ### Exemples
 
 Le fichier `requests.http` à la racine contient des exemples prêts à l'emploi. Utilisable avec l'extension VSCode REST Client ou avec curl.

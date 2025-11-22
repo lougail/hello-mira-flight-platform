@@ -26,7 +26,7 @@ async def get_airport_by_iata_tool(iata: str) -> dict:
     Returns:
         Informations complètes sur l'aéroport
     """
-    async with AirportClient(settings.airport_api_url, settings.http_timeout) as client:
+    async with AirportClient(settings.airport_api_url, settings.http_timeout, settings.demo_mode) as client:
         return await client.get_airport_by_iata(iata)
 
 
@@ -42,7 +42,7 @@ async def search_airports_tool(name: str, country_code: Optional[str] = None) ->
     Returns:
         Liste d'aéroports correspondant à la recherche
     """
-    async with AirportClient(settings.airport_api_url, settings.http_timeout) as client:
+    async with AirportClient(settings.airport_api_url, settings.http_timeout, settings.demo_mode) as client:
         return await client.search_airports_by_name(name, country_code)
 
 
@@ -61,7 +61,7 @@ async def get_nearest_airport_tool(
     Returns:
         Aéroport le plus proche avec distance
     """
-    async with AirportClient(settings.airport_api_url, settings.http_timeout) as client:
+    async with AirportClient(settings.airport_api_url, settings.http_timeout, settings.demo_mode) as client:
         return await client.get_nearest_airport_by_address(address, country_code)
 
 
@@ -77,7 +77,7 @@ async def get_departures_tool(iata: str, limit: int = 20) -> dict:
     Returns:
         Liste des vols au départ avec leurs statuts
     """
-    async with AirportClient(settings.airport_api_url, settings.http_timeout) as client:
+    async with AirportClient(settings.airport_api_url, settings.http_timeout, settings.demo_mode) as client:
         return await client.get_departures(iata, limit=min(limit, 100))
 
 
@@ -93,5 +93,5 @@ async def get_arrivals_tool(iata: str, limit: int = 20) -> dict:
     Returns:
         Liste des vols à l'arrivée avec leurs statuts
     """
-    async with AirportClient(settings.airport_api_url, settings.http_timeout) as client:
+    async with AirportClient(settings.airport_api_url, settings.http_timeout, settings.demo_mode) as client:
         return await client.get_arrivals(iata, limit=min(limit, 100))
