@@ -78,10 +78,10 @@ GET {{airportUrl}}/airports/nearest?lat=35.6762&lon=139.6503&radius=50
 # ----------------------------------------------------------------------------
 
 ### Aeroport le plus proche de "Lille, France"
-GET {{baseUrl}}/airports/nearest-by-address?address=Lille,France&country_code=FR
+GET {{airportUrl}}/airports/nearest-by-address?address=Lille,France&country_code=FR
 
 ### Aeroport le plus proche de "10 rue de Rivoli, Paris"
-GET {{baseUrl}}/airports/nearest-by-address?address=10 rue de Rivoli, Paris&country_code=FR
+GET {{airportUrl}}/airports/nearest-by-address?address=10 rue de Rivoli, Paris&country_code=FR
 
 ### Aeroport le plus proche de "Tour Eiffel, Paris"
 GET {{airportUrl}}/airports/nearest?address=Tour Eiffel, Paris&radius=50
