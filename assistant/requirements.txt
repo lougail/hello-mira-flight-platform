@@ -1,0 +1,33 @@
+# ============================================================================
+# REQUIREMENTS - Assistant Microservice
+# ============================================================================
+#
+# Stack:
+# - FastAPI: API REST framework
+# - LangGraph: Multi-agent orchestration (2025 standard)
+# - Mistral AI: LLM avec function calling
+# - httpx: Client HTTP async pour appels microservices
+#
+# ============================================================================
+
+# FastAPI et serveur ASGI
+fastapi==0.121.2
+uvicorn[standard]==0.34.0
+
+# Validation et configuration
+pydantic==2.12.4
+pydantic-settings==2.8.2
+
+# Client HTTP async
+httpx==0.27.0
+
+# LangGraph et LangChain Core (2025 standard pour orchestration multi-agent)
+langgraph==0.2.45
+langchain-core==0.3.21
+langchain-mistralai==0.2.2
+
+# Utilitaires
+python-dotenv==1.0.0
+
+# Logging et monitoring
+python-json-logger==3.2.1
