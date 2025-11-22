@@ -125,6 +125,65 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ==========================================================================
+  # Flight - Microservice de suivi de vols individuels
+  # ==========================================================================
+  flight:
+    build:
+      context: ./flight
+      dockerfile: Dockerfile
+
+    image: hello-mira/flight:latest
+    container_name: hello-mira-flight
+    restart: unless-stopped
+
+    # Dependances
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+    # Variables d'environnement
+    environment:
+      # API Aviationstack
+      AVIATIONSTACK_API_KEY: ${AVIATIONSTACK_API_KEY}
+
+      # MongoDB (avec authentification)
+      MONGODB_URL: mongodb://admin:${MONGO_PASSWORD}@mongo:27017
+      MONGODB_DATABASE: hello_mira
+      MONGODB_TIMEOUT: 5000
+
+      # Cache
+      CACHE_TTL: 300
+
+      # Application
+      DEBUG: "false"
+
+      # CORS (pour le frontend React)
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
+
+    # Ports exposes
+    ports:
+      - "8002:8002"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; exit(0 if httpx.get('http://localhost:8002/api/v1/health').status_code == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Reseau dedie
+    networks:
+      - hello-mira-network
+
+    # Logging limite
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 # ============================================================================
 # NETWORKS
 # ============================================================================
