@@ -5,10 +5,12 @@
 # Orchestration complete du systeme :
 # - MongoDB (base de donnees + cache)
 # - Airport microservice (API REST)
+# - Flight microservice (API REST)
 #
 # Usage :
 #   docker-compose up -d              # Demarre en background
 #   docker-compose logs -f airport    # Logs en temps reel
+#   docker-compose logs -f flight     # Logs Flight
 #   docker-compose down               # Arrete tout
 #   docker-compose down -v            # Arrete + supprime volumes
 #
@@ -125,6 +127,65 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ==========================================================================
+  # Flight - Microservice de suivi de vols individuels
+  # ==========================================================================
+  flight:
+    build:
+      context: ./flight
+      dockerfile: Dockerfile
+
+    image: hello-mira/flight:latest
+    container_name: hello-mira-flight
+    restart: unless-stopped
+
+    # Dependances
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+    # Variables d'environnement
+    environment:
+      # API Aviationstack
+      AVIATIONSTACK_API_KEY: ${AVIATIONSTACK_API_KEY}
+
+      # MongoDB (avec authentification)
+      MONGODB_URL: mongodb://admin:${MONGO_PASSWORD}@mongo:27017
+      MONGODB_DATABASE: hello_mira
+      MONGODB_TIMEOUT: 5000
+
+      # Cache
+      CACHE_TTL: 300
+
+      # Application
+      DEBUG: "false"
+
+      # CORS (pour le frontend React)
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
+
+    # Ports exposes
+    ports:
+      - "8002:8002"
+
+    # Health check (herite du Dockerfile + override)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; exit(0 if httpx.get('http://localhost:8002/api/v1/health').status_code == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Reseau dedie
+    networks:
+      - hello-mira-network
+
+    # Logging limite
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 # ============================================================================
 # NETWORKS
 # ============================================================================
@@ -165,8 +226,11 @@ volumes:
 # - Healthcheck intelligent avec start_period pour eviter false negatives
 # - Cache TTL configurable (300s par defaut)
 #
+# Microservices :
+# - Airport (port 8001) : Recherche d'aeroports et vols au depart/arrivee
+# - Flight (port 8002) : Suivi de vols individuels et statistiques
+#
 # Evolutivite :
-# - Pret pour ajout microservice Flight
 # - Pret pour ajout microservice Assistant
 # - Pret pour ajout frontend React
 #
@@ -175,6 +239,9 @@ volumes:
 #   docker-compose ps                # Etat des services
 #   docker-compose exec mongo mongosh # Shell MongoDB
 #   docker-compose exec airport sh   # Shell dans container airport
+#   docker-compose exec flight sh    # Shell dans container flight
+#   docker-compose logs -f airport   # Logs Airport en temps reel
+#   docker-compose logs -f flight    # Logs Flight en temps reel
 #   docker-compose logs --tail=100   # 100 dernieres lignes de logs
 #
 # ============================================================================

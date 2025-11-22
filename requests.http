@@ -1,5 +1,5 @@
 # ============================================================================
-# HELLO MIRA - Airport API - Collection de requetes HTTP
+# HELLO MIRA - Collection de requetes HTTP
 # ============================================================================
 #
 # Utilisation :
@@ -9,11 +9,14 @@
 #
 # Prerequis :
 #   - Docker Compose lance : docker-compose up
-#   - API disponible sur http://localhost:8001
+#   - Airport API disponible sur http://localhost:8001
+#   - Flight API disponible sur http://localhost:8002
 #
 # ============================================================================
 
-@baseUrl = http://localhost:8001/api/v1
+@airportUrl = http://localhost:8001/api/v1
+@flightUrl = http://localhost:8002/api/v1
+@baseUrl = {{airportUrl}}
 
 # ============================================================================
 # HEALTH CHECK
@@ -41,45 +44,51 @@ GET {{baseUrl}}/airports/LHR
 
 
 # ----------------------------------------------------------------------------
-# 2. Recherche par nom ou ville
+# 2. Recherche par nom de lieu (ville, region)
 # ----------------------------------------------------------------------------
 
-### Recherche par nom "Paris"
-GET {{baseUrl}}/airports/search?name=Paris
+### Recherche aeroports a Paris (France)
+GET {{baseUrl}}/airports/search?name=Paris&country_code=FR
 
-### Recherche par nom "London"
-GET {{baseUrl}}/airports/search?name=London
+### Recherche aeroports a Londres (UK)
+GET {{baseUrl}}/airports/search?name=London&country_code=GB
 
-### Recherche par nom "Tokyo"
-GET {{baseUrl}}/airports/search?name=Tokyo
+### Recherche aeroports a Lyon (France)
+GET {{baseUrl}}/airports/search?name=Lyon&country_code=FR&limit=3
+
+### Recherche aeroports en Provence (France)
+GET {{baseUrl}}/airports/search?name=Provence&country_code=FR
 
 
 # ----------------------------------------------------------------------------
 # 3. Recherche par coordonnees GPS (proximite)
 # ----------------------------------------------------------------------------
 
-### Aeroport le plus proche de Paris (Latitude: 48.8566, Longitude: 2.3522)
-GET {{baseUrl}}/airports/nearest?lat=48.8566&lon=2.3522&radius=50
+### Aeroport le plus proche de Paris centre (Latitude: 48.8566, Longitude: 2.3522)
+GET {{baseUrl}}/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FR
 
-### Aeroport le plus proche de New York (Latitude: 40.7128, Longitude: -74.0060)
-GET {{baseUrl}}/airports/nearest?lat=40.7128&lon=-74.0060&radius=50
+### Aeroport le plus proche de Lille (Latitude: 50.6292, Longitude: 3.0573)
+GET {{baseUrl}}/airports/nearest-by-coords?latitude=50.6292&longitude=3.0573&country_code=FR
 
-### Aeroport le plus proche de Tokyo (Latitude: 35.6762, Longitude: 139.6503)
-GET {{baseUrl}}/airports/nearest?lat=35.6762&lon=139.6503&radius=50
+### Aeroport le plus proche de Lyon (Latitude: 45.7640, Longitude: 4.8357)
+GET {{baseUrl}}/airports/nearest-by-coords?latitude=45.7640&longitude=4.8357&country_code=FR
 
 
 # ----------------------------------------------------------------------------
 # 4. Recherche par adresse (geocodage automatique)
 # ----------------------------------------------------------------------------
 
+### Aeroport le plus proche de "Lille, France"
+GET {{baseUrl}}/airports/nearest-by-address?address=Lille,France&country_code=FR
+
+### Aeroport le plus proche de "10 rue de Rivoli, Paris"
+GET {{baseUrl}}/airports/nearest-by-address?address=10 rue de Rivoli, Paris&country_code=FR
+
 ### Aeroport le plus proche de "Tour Eiffel, Paris"
-GET {{baseUrl}}/airports/nearest?address=Tour Eiffel, Paris&radius=50
+GET {{baseUrl}}/airports/nearest-by-address?address=Tour Eiffel, Paris&country_code=FR
 
-### Aeroport le plus proche de "Times Square, New York"
-GET {{baseUrl}}/airports/nearest?address=Times Square, New York&radius=100
-
-### Aeroport le plus proche de "Big Ben, London"
-GET {{baseUrl}}/airports/nearest?address=Big Ben, London&radius=50
+### Aeroport le plus proche de "Lyon, France"
+GET {{baseUrl}}/airports/nearest-by-address?address=Lyon,France&country_code=FR
 
 
 # ============================================================================
@@ -121,11 +130,17 @@ GET {{baseUrl}}/airports/LHR/arrivals?limit=5&offset=10
 ### Code IATA inexistant (doit retourner 404)
 GET {{baseUrl}}/airports/XXX
 
-### Coordonnees GPS invalides (doit retourner 400)
-GET {{baseUrl}}/airports/nearest?lat=200&lon=300
+### Coordonnees GPS invalides (doit retourner 422 - validation error)
+GET {{baseUrl}}/airports/nearest-by-coords?latitude=200&longitude=300&country_code=FR
+
+### Country code manquant (doit retourner 422)
+GET {{baseUrl}}/airports/search?name=Paris
+
+### Country code invalide (doit retourner 422)
+GET {{baseUrl}}/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FRANCE
 
 ### Adresse introuvable (doit retourner 404)
-GET {{baseUrl}}/airports/nearest?address=adresse_inexistante_12345
+GET {{baseUrl}}/airports/nearest-by-address?address=adresse_inexistante_12345&country_code=FR
 
 ### Pagination limite excessive (doit etre capee a 100)
 GET {{baseUrl}}/airports/CDG/departures?limit=1000
@@ -162,15 +177,120 @@ GET {{baseUrl}}/airports/CDG
 #
 # Endpoints implementes (Partie 1 - Microservice Airport) :
 #
-# GET  /api/v1/health                              - Health check
-# GET  /api/v1/airports/{iata}                     - Recherche par code IATA
-# GET  /api/v1/airports/search?name={name}         - Recherche par nom
-# GET  /api/v1/airports/nearest?lat={lat}&lon={lon} - Recherche par GPS
-# GET  /api/v1/airports/nearest?address={address}  - Recherche par adresse
-# GET  /api/v1/airports/{iata}/departures          - Vols au depart
-# GET  /api/v1/airports/{iata}/arrivals            - Vols a l'arrivee
+# GET  /api/v1/health                                                    - Health check
+# GET  /api/v1/airports/{iata}                                           - Recherche par code IATA
+# GET  /api/v1/airports/search?name={name}&country_code={code}           - Recherche par nom de lieu
+# GET  /api/v1/airports/nearest-by-coords?latitude={lat}&longitude={lon}&country_code={code} - Recherche par GPS
+# GET  /api/v1/airports/nearest-by-address?address={address}&country_code={code} - Recherche par adresse
+# GET  /api/v1/airports/{iata}/departures                                - Vols au depart
+# GET  /api/v1/airports/{iata}/arrivals                                  - Vols a l'arrivee
+#
+# Parametres obligatoires :
+# - country_code : Code ISO pays (2 lettres majuscules, ex: FR, GB, US)
+#
+# Optimisations :
+# - Cache MongoDB avec TTL de 300s (5 minutes) configurable
+# - Geocodage via OpenStreetMap (Nominatim)
+# - Recherche /search utilise OpenStreetMap au lieu du parametre search d'Aviationstack (403 sur Basic Plan)
 #
 # Tous les endpoints supportent la pagination avec ?limit= et ?offset=
-# Le cache MongoDB a un TTL de 300s (5 minutes) configurable
+#
+# ============================================================================
+
+
+# ============================================================================
+# PARTIE 2 - MICROSERVICE FLIGHT (SUIVI DE VOLS INDIVIDUELS)
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Health Check Flight
+# ----------------------------------------------------------------------------
+
+### Health Check Flight - Verifie que l'API Flight est demarree
+GET {{flightUrl}}/health
+
+
+# ----------------------------------------------------------------------------
+# 1. Statut en temps reel d'un vol
+# ----------------------------------------------------------------------------
+
+### Statut du vol Air France 447 (CDG -> JFK)
+GET {{flightUrl}}/flights/AF447
+
+### Statut du vol British Airways 117
+GET {{flightUrl}}/flights/BA117
+
+### Statut du vol Lufthansa 400
+GET {{flightUrl}}/flights/LH400
+
+### Statut d'un vol inexistant (doit retourner 404)
+GET {{flightUrl}}/flights/XX9999
+
+
+# ----------------------------------------------------------------------------
+# 2. Historique d'un vol sur une periode
+# ----------------------------------------------------------------------------
+
+### Historique AF447 sur 7 jours (1-7 novembre)
+GET {{flightUrl}}/flights/AF447/history?start_date=2025-11-01&end_date=2025-11-07
+
+### Historique BA117 sur 14 jours (derniers 2 semaines)
+GET {{flightUrl}}/flights/BA117/history?start_date=2025-11-01&end_date=2025-11-14
+
+### Historique LH400 sur 30 jours (dernier mois)
+GET {{flightUrl}}/flights/LH400/history?start_date=2025-10-15&end_date=2025-11-14
+
+### Historique sur periode maximale (90 jours)
+GET {{flightUrl}}/flights/AF447/history?start_date=2025-08-15&end_date=2025-11-14
+
+
+# ----------------------------------------------------------------------------
+# 3. Statistiques agregeees d'un vol
+# ----------------------------------------------------------------------------
+
+### Statistiques AF447 sur 7 jours
+GET {{flightUrl}}/flights/AF447/statistics?start_date=2025-11-01&end_date=2025-11-07
+
+### Statistiques BA117 sur 30 jours (analyse mensuelle)
+GET {{flightUrl}}/flights/BA117/statistics?start_date=2025-10-15&end_date=2025-11-14
+
+### Statistiques LH400 sur 90 jours (analyse trimestrielle)
+GET {{flightUrl}}/flights/LH400/statistics?start_date=2025-08-15&end_date=2025-11-14
+
+
+# ----------------------------------------------------------------------------
+# 4. Tests de cas limites
+# ----------------------------------------------------------------------------
+
+### Dates invalides (doit retourner 400)
+GET {{flightUrl}}/flights/AF447/history?start_date=2025-13-01&end_date=2025-11-14
+
+### Date de debut apres date de fin (doit retourner 400)
+GET {{flightUrl}}/flights/AF447/history?start_date=2025-11-14&end_date=2025-11-01
+
+### Vol inexistant pour statistiques (doit retourner 404)
+GET {{flightUrl}}/flights/XX9999/statistics?start_date=2025-11-01&end_date=2025-11-14
+
+
+# ============================================================================
+# NOTES FLIGHT MICROSERVICE
+# ============================================================================
+#
+# Endpoints implementes (Partie 2 - Microservice Flight) :
+#
+# GET  /api/v1/health                                   - Health check
+# GET  /api/v1/flights/{flight_iata}                    - Statut temps reel
+# GET  /api/v1/flights/{flight_iata}/history            - Historique
+# GET  /api/v1/flights/{flight_iata}/statistics         - Statistiques
+#
+# Optimisations :
+# - Cache MongoDB avec TTL configurable (300s)
+# - Stockage local de l'historique dans MongoDB (collection "flights")
+# - Taux de ponctualite, retards moyens, duree moyenne calculés
+#
+# Limites API Aviationstack Basic Plan :
+# - Historique : 3 mois en arriere maximum
+# - Periode : 90 jours maximum par requete
+# - 100 requetes/mois au total
 #
 # ============================================================================
