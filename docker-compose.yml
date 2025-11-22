@@ -212,7 +212,7 @@ services:
     environment:
       # API Mistral AI
       MISTRAL_API_KEY: ${MISTRAL_API_KEY}
-      MISTRAL_MODEL: "mistral-large-latest"
+      MISTRAL_MODEL: "open-mixtral-8x7b"
       MISTRAL_TEMPERATURE: 0.0
 
       # URLs des microservices
