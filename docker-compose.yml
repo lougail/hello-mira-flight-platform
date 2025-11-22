@@ -6,17 +6,20 @@
 # - MongoDB (base de donnees + cache)
 # - Airport microservice (API REST)
 # - Flight microservice (API REST)
+# - Assistant microservice (IA conversationnelle)
 #
 # Usage :
 #   docker-compose up -d              # Demarre en background
 #   docker-compose logs -f airport    # Logs en temps reel
 #   docker-compose logs -f flight     # Logs Flight
+#   docker-compose logs -f assistant  # Logs Assistant
 #   docker-compose down               # Arrete tout
 #   docker-compose down -v            # Arrete + supprime volumes
 #
 # Prerequis :
 #   - Fichier .env a la racine avec :
 #     AVIATIONSTACK_API_KEY=xxx
+#     MISTRAL_API_KEY=xxx
 #     MONGO_PASSWORD=xxx
 #
 # ============================================================================
@@ -186,6 +189,68 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ==========================================================================
+  # Assistant - Microservice d'IA conversationnelle
+  # ==========================================================================
+  assistant:
+    build:
+      context: ./assistant
+      dockerfile: Dockerfile
+
+    image: hello-mira/assistant:latest
+    container_name: hello-mira-assistant
+    restart: unless-stopped
+
+    # Dependances (attend que Airport et Flight soient healthy)
+    depends_on:
+      airport:
+        condition: service_healthy
+      flight:
+        condition: service_healthy
+
+    # Variables d'environnement
+    environment:
+      # API Mistral AI
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY}
+      MISTRAL_MODEL: "mistral-large-latest"
+      MISTRAL_TEMPERATURE: 0.0
+
+      # URLs des microservices
+      AIRPORT_API_URL: http://airport:8001/api/v1
+      FLIGHT_API_URL: http://flight:8002/api/v1
+      HTTP_TIMEOUT: 30
+
+      # Application
+      DEBUG: "false"
+      MAX_TOKENS: 1000
+      ENABLE_STREAMING: "false"
+
+      # CORS (pour le frontend React)
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
+
+    # Ports exposes
+    ports:
+      - "8003:8003"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; exit(0 if httpx.get('http://localhost:8003/api/v1/health').status_code == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Reseau dedie
+    networks:
+      - hello-mira-network
+
+    # Logging limite
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 # ============================================================================
 # NETWORKS
 # ============================================================================
@@ -229,10 +294,11 @@ volumes:
 # Microservices :
 # - Airport (port 8001) : Recherche d'aeroports et vols au depart/arrivee
 # - Flight (port 8002) : Suivi de vols individuels et statistiques
+# - Assistant (port 8003) : IA conversationnelle (LangGraph + Mistral AI)
 #
 # Evolutivite :
-# - Pret pour ajout microservice Assistant
 # - Pret pour ajout frontend React
+# - Pret pour extension multi-langue
 #
 # Commandes utiles :
 #   docker-compose up --build        # Rebuild + start
@@ -240,8 +306,10 @@ volumes:
 #   docker-compose exec mongo mongosh # Shell MongoDB
 #   docker-compose exec airport sh   # Shell dans container airport
 #   docker-compose exec flight sh    # Shell dans container flight
+#   docker-compose exec assistant sh # Shell dans container assistant
 #   docker-compose logs -f airport   # Logs Airport en temps reel
 #   docker-compose logs -f flight    # Logs Flight en temps reel
+#   docker-compose logs -f assistant # Logs Assistant en temps reel
 #   docker-compose logs --tail=100   # 100 dernieres lignes de logs
 #
 # ============================================================================
