@@ -8,12 +8,13 @@ Le système est composé de microservices indépendants :
 
 - **Airport** (port 8001) : Recherche d'aéroports et consultation des vols au départ/arrivée
 - **Flight** (port 8002) : Suivi individuel de vols avec historique et statistiques
-- **Assistant** (à venir) : Interface en langage naturel
+- **Assistant** (port 8003) : IA conversationnelle avec LangGraph et Mistral AI
 
 ## Prérequis
 
 - Docker et Docker Compose
 - Clé API Aviationstack (gratuite sur [aviationstack.com](https://aviationstack.com))
+- Clé API Mistral AI (crédits gratuits sur [console.mistral.ai](https://console.mistral.ai))
 
 ## Installation
 
@@ -27,7 +28,8 @@ cd hello-mira-flight-platform
 2. Créer le fichier `.env` à la racine
 
 ```env
-AVIATIONSTACK_API_KEY=votre_cle_api
+AVIATIONSTACK_API_KEY=votre_cle_aviationstack
+MISTRAL_API_KEY=votre_cle_mistral
 MONGO_PASSWORD=un_mot_de_passe_securise
 ```
 
@@ -40,6 +42,7 @@ docker-compose up
 Les APIs seront disponibles sur :
 - **Airport** : `http://localhost:8001`
 - **Flight** : `http://localhost:8002`
+- **Assistant** : `http://localhost:8003`
 
 ## Utilisation
 
@@ -54,6 +57,10 @@ Une fois l'application lancée, la documentation Swagger est accessible sur :
 **Microservice Flight :**
 - Swagger UI : http://localhost:8002/docs
 - ReDoc : http://localhost:8002/redoc
+
+**Microservice Assistant :**
+- Swagger UI : http://localhost:8003/docs
+- ReDoc : http://localhost:8003/redoc
 
 ### Endpoints disponibles
 
@@ -115,6 +122,44 @@ GET /api/v1/flights/{flight_iata}/history?start_date=2025-11-21&end_date=2025-11
 
 # Statistiques agrégées (ponctualité, retards)
 GET /api/v1/flights/{flight_iata}/statistics?start_date=2025-11-21&end_date=2025-11-22
+```
+
+#### Assistant IA conversationnel (Assistant API - port 8003)
+
+**Interprétation de langage naturel**
+
+```bash
+# Interpréter une intention sans exécuter d'action
+POST /api/v1/assistant/interpret
+Body: {"prompt": "Je suis sur le vol AF282, à quelle heure j'arrive ?"}
+
+# Réponse complète en langage naturel (orchestration complète)
+POST /api/v1/assistant/answer
+Body: {"prompt": "Trouve-moi l'aéroport le plus proche de Lille"}
+```
+
+**Exemples de prompts supportés :**
+
+```bash
+# Statut d'un vol
+curl -X POST http://localhost:8003/api/v1/assistant/answer \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Je suis sur le vol AF282, à quelle heure vais-je arriver ?"}'
+
+# Recherche d'aéroport
+curl -X POST http://localhost:8003/api/v1/assistant/answer \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Trouve-moi l\'aéroport le plus proche de Lille"}'
+
+# Vols au départ
+curl -X POST http://localhost:8003/api/v1/assistant/answer \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Quels vols partent de CDG cet après-midi ?"}'
+
+# Statistiques d'un vol
+curl -X POST http://localhost:8003/api/v1/assistant/answer \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Donne-moi les statistiques du vol BA117 sur les 30 derniers jours"}'
 ```
 
 ### Exemples

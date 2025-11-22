@@ -78,10 +78,10 @@ GET {{airportUrl}}/airports/nearest?lat=35.6762&lon=139.6503&radius=50
 # ----------------------------------------------------------------------------
 
 ### Aeroport le plus proche de "Lille, France"
-GET {{baseUrl}}/airports/nearest-by-address?address=Lille,France&country_code=FR
+GET {{airportUrl}}/airports/nearest-by-address?address=Lille,France&country_code=FR
 
 ### Aeroport le plus proche de "10 rue de Rivoli, Paris"
-GET {{baseUrl}}/airports/nearest-by-address?address=10 rue de Rivoli, Paris&country_code=FR
+GET {{airportUrl}}/airports/nearest-by-address?address=10 rue de Rivoli, Paris&country_code=FR
 
 ### Aeroport le plus proche de "Tour Eiffel, Paris"
 GET {{airportUrl}}/airports/nearest?address=Tour Eiffel, Paris&radius=50
@@ -240,9 +240,122 @@ GET {{airportUrl}}/airports/CDG
 #   GET  /api/v1/flights/{iata}/history              - Historique sur une periode
 #   GET  /api/v1/flights/{iata}/statistics           - Statistiques agregeees
 #
+# Microservice Assistant (port 8003) :
+#   POST /api/v1/assistant/interpret                - Interprete l'intention
+#   POST /api/v1/assistant/answer                   - Reponse complete en langage naturel
+#
 # Optimisations :
 #   - Cache MongoDB avec TTL de 300s (5 minutes)
 #   - Historique construit progressivement (chaque appel stocke ~2 jours)
 #   - Statistiques : seuil retard > 15 min (standard aviation)
+#   - LangGraph StateGraph pour orchestration multi-agents
+#   - Mistral AI function calling pour detection d'intention
 #
+# ============================================================================
+
+
+# ============================================================================
+# PARTIE 4 - ASSISTANT IA CONVERSATIONNEL
+# ============================================================================
+
+@assistantUrl = http://localhost:8003/api/v1
+
+# ----------------------------------------------------------------------------
+# 1. Interpretation d'intention (sans execution)
+# ----------------------------------------------------------------------------
+
+### Interprete : Statut d'un vol
+POST {{assistantUrl}}/assistant/interpret
+Content-Type: application/json
+
+{
+  "prompt": "Je suis sur le vol AF282, à quelle heure vais-je arriver ?"
+}
+
+### Interprete : Recherche d'aeroport
+POST {{assistantUrl}}/assistant/interpret
+Content-Type: application/json
+
+{
+  "prompt": "Trouve-moi l'aéroport le plus proche de Lille"
+}
+
+### Interprete : Vols au depart
+POST {{assistantUrl}}/assistant/interpret
+Content-Type: application/json
+
+{
+  "prompt": "Quels vols partent de CDG cet après-midi ?"
+}
+
+
+# ----------------------------------------------------------------------------
+# 2. Reponse complete en langage naturel (orchestration complete)
+# ----------------------------------------------------------------------------
+
+### Exemple du cahier des charges 1 : Statut d'un vol
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Je suis sur le vol AV15, à quelle heure vais-je arriver ?"
+}
+
+### Exemple du cahier des charges 2 : Vols au depart
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Quels vols partent de CDG cet après-midi ?"
+}
+
+### Exemple du cahier des charges 3 : Aeroport le plus proche
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Trouve-moi l'aéroport le plus proche de Lille"
+}
+
+### Statut du vol AF282
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Je suis sur le vol AF282, à quelle heure j'arrive ?"
+}
+
+### Recherche d'aeroport par nom
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Cherche des aéroports à Paris"
+}
+
+### Statistiques d'un vol
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Donne-moi les statistiques de ponctualité du vol BA117 sur les 30 derniers jours"
+}
+
+### Vols a l'arrivee
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Quels vols arrivent à JFK dans les prochaines heures ?"
+}
+
+### Informations sur un aeroport
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Donne-moi des informations sur l'aéroport CDG"
+}
+
+
 # ============================================================================
