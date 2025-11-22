@@ -8,11 +8,7 @@ Le système est composé de microservices indépendants :
 
 - **Airport** (port 8001) : Recherche d'aéroports et consultation des vols au départ/arrivée
 - **Flight** (port 8002) : Suivi individuel de vols avec historique et statistiques
-<<<<<<< HEAD
-- **Assistant** : Interface en langage naturel (en développement)
-=======
 - **Assistant** (à venir) : Interface en langage naturel
->>>>>>> feature/flight-microservice
 
 ## Prérequis
 
@@ -42,13 +38,8 @@ docker-compose up
 ```
 
 Les APIs seront disponibles sur :
-<<<<<<< HEAD
-- Airport : `http://localhost:8001`
-- Flight : `http://localhost:8002`
-=======
 - **Airport** : `http://localhost:8001`
 - **Flight** : `http://localhost:8002`
->>>>>>> feature/flight-microservice
 
 ## Utilisation
 
@@ -56,19 +47,11 @@ Les APIs seront disponibles sur :
 
 Une fois l'application lancée, la documentation Swagger est accessible sur :
 
-<<<<<<< HEAD
-**Airport :**
-- Swagger UI : http://localhost:8001/docs
-- ReDoc : http://localhost:8001/redoc
-
-**Flight :**
-=======
 **Microservice Airport :**
 - Swagger UI : http://localhost:8001/docs
 - ReDoc : http://localhost:8001/redoc
 
 **Microservice Flight :**
->>>>>>> feature/flight-microservice
 - Swagger UI : http://localhost:8002/docs
 - ReDoc : http://localhost:8002/redoc
 
@@ -96,11 +79,7 @@ GET /api/v1/airports/nearest-by-address?address={address}&country_code={code}
 # Exemple : GET /api/v1/airports/nearest-by-address?address=Lille,France&country_code=FR
 ```
 
-<<<<<<< HEAD
-**Vols au départ et à l'arrivée**
-=======
 #### Vols au départ/arrivée d'un aéroport (Airport API)
->>>>>>> feature/flight-microservice
 
 ```bash
 # Vols au départ d'un aéroport
@@ -144,42 +123,13 @@ Le fichier `requests.http` à la racine contient des exemples prêts à l'emploi
 
 **Exemples Airport :**
 ```bash
-<<<<<<< HEAD
-# Recherche de l'aéroport CDG par code IATA
-=======
 # Microservice Airport
 # Recherche de l'aéroport CDG
->>>>>>> feature/flight-microservice
 curl http://localhost:8001/api/v1/airports/CDG
 
 # Recherche d'aéroports par nom de lieu
 curl "http://localhost:8001/api/v1/airports/search?name=Paris&country_code=FR"
 
-<<<<<<< HEAD
-# Aéroport le plus proche de coordonnées GPS
-curl "http://localhost:8001/api/v1/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FR"
-
-# Aéroport le plus proche d'une adresse
-curl "http://localhost:8001/api/v1/airports/nearest-by-address?address=Lille,France&country_code=FR"
-
-# Vols au départ de CDG
-curl "http://localhost:8001/api/v1/airports/CDG/departures?limit=10"
-
-# Vols à l'arrivée à CDG
-curl "http://localhost:8001/api/v1/airports/CDG/arrivals?limit=10"
-```
-
-**Exemples Flight :**
-```bash
-# Statut en temps réel du vol AF447
-curl http://localhost:8002/api/v1/flights/AF447
-
-# Historique sur 7 jours
-curl "http://localhost:8002/api/v1/flights/AF447/history?start_date=2025-11-01&end_date=2025-11-07"
-
-# Statistiques sur 30 jours
-curl "http://localhost:8002/api/v1/flights/AF447/statistics?start_date=2025-10-15&end_date=2025-11-14"
-=======
 # Aéroport le plus proche de Paris
 curl "http://localhost:8001/api/v1/airports/nearest?lat=48.8566&lon=2.3522&radius=50"
 
@@ -192,7 +142,6 @@ curl "http://localhost:8002/api/v1/flights/AF282/history?start_date=2025-11-21&e
 
 # Statistiques du vol AF282
 curl "http://localhost:8002/api/v1/flights/AF282/statistics?start_date=2025-11-21&end_date=2025-11-22"
->>>>>>> feature/flight-microservice
 ```
 
 ## Développement
@@ -217,21 +166,12 @@ hello-mira-flight-platform/
 ├── flight/                  # Microservice Flight
 │   ├── api/                # Routes FastAPI
 │   │   └── routes/
-<<<<<<< HEAD
-│   ├── clients/            # Client API Aviationstack (partagé)
-│   ├── config/             # Configuration et settings
-│   ├── models/             # Modèles Pydantic
-│   │   └── domain/        # Modèles métier (partagés avec Airport)
-│   ├── services/           # Logique métier (FlightService)
-│   ├── tests/             # Tests unitaires
-=======
 │   ├── clients/            # Client API Aviationstack
 │   ├── config/             # Configuration et settings
 │   ├── models/             # Modèles Pydantic
 │   │   ├── api/           # Modèles de réponse API
 │   │   └── domain/        # Modèles métier
 │   ├── services/           # Logique métier
->>>>>>> feature/flight-microservice
 │   ├── Dockerfile
 │   ├── main.py            # Point d'entrée
 │   └── requirements.txt
@@ -242,11 +182,7 @@ hello-mira-flight-platform/
 
 ### Lancement en mode développement
 
-<<<<<<< HEAD
-**Airport (port 8001) :**
-=======
 **Microservice Airport :**
->>>>>>> feature/flight-microservice
 ```bash
 cd airport
 python -m venv venv
@@ -255,11 +191,7 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 8001
 ```
 
-<<<<<<< HEAD
-**Flight (port 8002) :**
-=======
 **Microservice Flight :**
->>>>>>> feature/flight-microservice
 ```bash
 cd flight
 python -m venv venv
