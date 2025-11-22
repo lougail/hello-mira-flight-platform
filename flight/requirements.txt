@@ -1,0 +1,36 @@
+# ============================================================================
+# REQUIREMENTS.TXT - Hello Mira Flight Platform
+# Dernière vérification : 14 novembre 2025
+# Stack : FastAPI + PyMongo Async + httpx
+# ============================================================================
+
+# ============================================================================
+# CORE - FastAPI et Serveur ASGI
+# ============================================================================
+fastapi==0.121.2              # 13 nov 2025 - Framework web moderne avec validation auto
+uvicorn[standard]==0.38.0     # 18 oct 2025 - Serveur ASGI performant avec uvloop
+
+# ============================================================================
+# VALIDATION & CONFIGURATION
+# ============================================================================
+pydantic==2.12.4              # 5 nov 2025 - Validation de données avec type hints
+pydantic-settings==2.12.0     # 10 nov 2025 - Gestion des variables d'environnement
+python-dotenv==1.0.1          # Lecture du fichier .env
+
+# ============================================================================
+# HTTP CLIENT ASYNCHRONE
+# ============================================================================
+httpx==0.28.1                 # Nov 2025 - Client HTTP async (remplace requests)
+
+# ============================================================================
+# BASE DE DONNÉES - PyMongo Async API (Recommandé par MongoDB)
+# ============================================================================
+pymongo==4.15.4               # 11 nov 2025 - Driver MongoDB avec API async native
+                              # Remplace Motor (deprecated mai 2025)
+
+# ============================================================================
+# DÉVELOPPEMENT & TESTS
+# ============================================================================
+pytest==9.0.1                 # 12 nov 2025 - Framework de tests Python
+pytest-asyncio==1.3.0         # 10 nov 2025 - Support async/await pour pytest
+pytest-mock==3.15.1           # 16 sep 2025 - Wrapper pytest pour unittest.mock
