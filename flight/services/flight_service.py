@@ -208,8 +208,13 @@ class FlightService:
         IMPORTANT: Cette méthode lit l'historique depuis MongoDB, pas depuis l'API.
         Les données sont accumulées au fil du temps via get_flight_status().
 
-        L'API Aviationstack Basic Plan ne supporte pas flight_date avec flight_iata.
-        Solution: Stocker les consultations dans MongoDB pour construire l'historique.
+        Note sur l'API Aviationstack:
+        - flight_iata seul retourne ~40-45% des vols disponibles (échantillon partiel)
+        - flight_date + flight_iata permet de récupérer des vols spécifiques
+        - L'API elle-même ne possède qu'un historique partiel (~45% des vols réels)
+
+        Stratégie actuelle: Utiliser flight_iata pour accumuler l'historique.
+        Suffisant pour des statistiques fiables sur 15-30 jours.
 
         Args:
             flight_iata: Numero de vol
