@@ -64,10 +64,10 @@ Architecture moderne combinant FastAPI, MongoDB, LangGraph et Mistral AI pour fo
 
 - [Vue d'Ensemble](#-vue-densemble)
 - [Stack Technique](#-stack-technique)
-- [Architecture](#-architecture)
+- [Architecture](#️-architecture)
 - [Prérequis](#-prérequis)
 - [Installation](#-installation)
-- [Configuration](#-configuration)
+- [Configuration](#️-configuration)
 - [Endpoints API](#-endpoints-api)
 - [Mode DEMO](#-mode-demo)
 - [Exemples d'Utilisation](#-exemples-dutilisation)
@@ -366,4 +366,584 @@ Chaque microservice définit des valeurs par défaut dans `*/config/settings.py`
 
 ---
 
-<!-- SECTIONS À COMPLÉTER : Endpoints API, Mode DEMO, Exemples, Troubleshooting -->
+## 📡 Endpoints API
+
+Tous les endpoints sont documentés automatiquement via FastAPI Swagger UI.
+
+### Airport Service (Port 8001)
+
+**Base URL** : `http://localhost:8001/api/v1`
+**Documentation** : <http://localhost:8001/docs>
+
+#### Recherche d'Aéroports
+
+| Endpoint | Méthode | Description | Paramètres |
+|----------|---------|-------------|------------|
+| `/airports/{iata_code}` | GET | Aéroport par code IATA | `iata_code` : Code IATA 3 lettres (ex: CDG) |
+| `/airports/search` | GET | Recherche par nom de lieu | `name`, `country_code` (2 lettres), `limit` (défaut 10), `offset` (défaut 0) |
+| `/airports/nearest-by-coords` | GET | Aéroport le plus proche (GPS) | `latitude` (-90 à 90), `longitude` (-180 à 180), `country_code` (2 lettres) |
+| `/airports/nearest-by-address` | GET | Aéroport le plus proche (adresse) | `address` (min 3 car), `country_code` (2 lettres) |
+
+#### Vols Liés aux Aéroports
+
+| Endpoint | Méthode | Description | Paramètres |
+|----------|---------|-------------|------------|
+| `/airports/{iata_code}/departures` | GET | Vols au départ | `iata_code` (Code IATA), `limit` (1-100, défaut 10), `offset` (pagination) |
+| `/airports/{iata_code}/arrivals` | GET | Vols à l'arrivée | `iata_code` (Code IATA), `limit` (1-100, défaut 10), `offset` (pagination) |
+
+#### Health Check
+
+| Endpoint | Méthode | Description |
+|----------|---------|-------------|
+| `/health` | GET | Liveness probe (toujours 200 OK) |
+| `/health/ready` | GET | Readiness probe (vérifie dépendances) |
+
+---
+
+### Flight Service (Port 8002)
+
+**Base URL** : `http://localhost:8002/api/v1`
+**Documentation** : <http://localhost:8002/docs>
+
+| Endpoint | Méthode | Description | Paramètres |
+|----------|---------|-------------|------------|
+| `/flights/{flight_iata}` | GET | Statut en temps réel | `flight_iata` (Code vol, ex: AF447) |
+| `/flights/{flight_iata}/history` | GET | Historique sur période | `flight_iata` (Code vol), `start_date` (YYYY-MM-DD), `end_date` (YYYY-MM-DD) |
+| `/flights/{flight_iata}/statistics` | GET | Statistiques agrégées | `flight_iata` (Code vol), `start_date` (YYYY-MM-DD), `end_date` (YYYY-MM-DD) |
+
+**Limites** :
+
+- Période max history/statistics : **90 jours**
+- Données historiques : **3 mois en arrière** (API Aviationstack Basic)
+
+---
+
+### Assistant Service (Port 8003)
+
+**Base URL** : `http://localhost:8003/api/v1`
+**Documentation** : <http://localhost:8003/docs>
+
+| Endpoint | Méthode | Description | Body |
+|----------|---------|-------------|------|
+| `/assistant/interpret` | POST | Détecte intention (pas d'exécution) | `{"prompt": "votre question"}` |
+| `/assistant/answer` | POST | Orchestration complète (LangGraph) | `{"prompt": "votre question"}` |
+
+**Exemples de prompts** :
+
+- "Je suis sur le vol AF282, à quelle heure j'arrive ?"
+- "Quels vols partent de CDG cet après-midi ?"
+- "Trouve-moi l'aéroport le plus proche de Lille"
+- "Donne-moi les statistiques du vol BA117"
+
+**Format réponse `/assistant/answer`** :
+
+```json
+{
+  "answer": "Réponse en langage naturel",
+  "data": { /* Données structurées */ }
+}
+```
+
+**Format réponse `/assistant/interpret`** :
+
+```json
+{
+  "intent": "get_flight_status",
+  "entities": {"flight_iata": "AF282"},
+  "confidence": 0.95
+}
+```
+
+---
+
+## 🎭 Mode DEMO
+
+Le mode DEMO permet de tester le microservice **Assistant** avec des données mockées, **sans consommer de quota API Aviationstack**.
+
+### Activation
+
+Modifier le fichier `.env` à la racine du projet :
+
+```env
+DEMO_MODE=true
+```
+
+Puis recréer le container Assistant pour charger la nouvelle variable :
+
+```bash
+docker-compose up -d --force-recreate assistant
+```
+
+Ou redémarrer tous les services :
+
+```bash
+docker-compose down
+docker-compose up -d
+```
+
+### Données Mockées Disponibles
+
+Le mode DEMO utilise des données fictives cohérentes stockées dans `assistant/tools/mock_data/` :
+
+**Aéroports** :
+
+- **CDG** - Charles de Gaulle (Paris)
+- **BOG** - El Dorado International (Bogota)
+- **LIL** - Lille Airport
+
+**Vols** :
+
+- **AV15** - Avianca (BOG → CDG, en vol avec retard de 18 min)
+- **AF282** - Air France (CDG → JFK, statut complet)
+- **BA117** - British Airways (avec historique et statistiques)
+
+**Vols au départ/arrivée** :
+
+- Liste de 5 vols au départ de CDG
+- Liste de 5 vols à l'arrivée à CDG
+
+### Exemples de Prompts en Mode DEMO
+
+Ces prompts fonctionnent avec les données mockées :
+
+```bash
+# Statut d'un vol
+curl -X POST "http://localhost:8003/api/v1/assistant/answer" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Je suis sur le vol AV15, à quelle heure j'\''arrive ?"}'
+
+# Recherche d'aéroport
+curl -X POST "http://localhost:8003/api/v1/assistant/answer" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Trouve-moi l'\''aéroport le plus proche de Lille"}'
+
+# Vols au départ
+curl -X POST "http://localhost:8003/api/v1/assistant/answer" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Quels vols partent de CDG cet après-midi ?"}'
+
+# Statistiques
+curl -X POST "http://localhost:8003/api/v1/assistant/answer" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Donne-moi les statistiques du vol BA117"}'
+```
+
+### Avantages
+
+**Économie de quota API** :
+
+- Les appels à l'API Aviationstack sont simulés
+- Idéal pour démonstrations, tests, développement
+
+**Données cohérentes** :
+
+- Horaires réalistes (basés sur l'heure actuelle)
+- Retards, portes, terminaux fictifs mais plausibles
+- Réponses instantanées (pas d'appel HTTP externe)
+
+### Limitations
+
+**vs Mode Production** :
+
+- Données limitées (3 aéroports, 3 vols)
+- Pas de recherche géographique réelle
+- Historiques pré-générés (pas de données temps réel)
+- Ne teste pas la connectivité avec Airport/Flight microservices
+
+**Important** : Le mode DEMO ne concerne que le microservice **Assistant**. Les microservices Airport et Flight appellent toujours l'API Aviationstack (sauf si leur cache MongoDB contient les données).
+
+### Vérification du Mode
+
+Vérifier que le mode DEMO est actif dans les logs :
+
+```bash
+docker-compose logs assistant | grep "DEMO MODE"
+```
+
+Sortie attendue :
+
+```log
+assistant  | INFO:     AirportClient initialized in DEMO MODE - using mock data
+assistant  | INFO:     FlightClient initialized in DEMO MODE - using mock data
+```
+
+---
+
+## 📋 Exemples d'Utilisation
+
+### Airport Service
+
+#### Rechercher un aéroport par code IATA
+
+```bash
+curl http://localhost:8001/api/v1/airports/CDG
+```
+
+**Réponse** :
+
+```json
+{
+  "data": {
+    "airport_name": "Charles de Gaulle Airport",
+    "iata_code": "CDG",
+    "icao_code": "LFPG",
+    "latitude": 49.012779,
+    "longitude": 2.55,
+    "country_name": "France",
+    "city_iata_code": "PAR"
+  }
+}
+```
+
+#### Rechercher un aéroport par coordonnées GPS
+
+```bash
+curl "http://localhost:8001/api/v1/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522"
+```
+
+**Réponse** :
+
+```json
+{
+  "data": {
+    "airport_name": "Paris-Le Bourget Airport",
+    "iata_code": "LBG",
+    "icao_code": "LFPB",
+    "latitude": 48.969444,
+    "longitude": 2.441389,
+    "country_name": "France",
+    "distance_km": 12.8
+  }
+}
+```
+
+#### Lister les vols au départ
+
+```bash
+curl "http://localhost:8001/api/v1/airports/CDG/departures?limit=5"
+```
+
+**Réponse** :
+
+```json
+{
+  "data": [
+    {
+      "flight_date": "2024-11-24",
+      "flight_status": "scheduled",
+      "departure": {
+        "airport": "Charles de Gaulle Airport",
+        "iata": "CDG",
+        "scheduled": "2024-11-24T14:30:00+00:00"
+      },
+      "arrival": {
+        "airport": "John F Kennedy International Airport",
+        "iata": "JFK"
+      },
+      "airline": {"name": "Air France", "iata": "AF"},
+      "flight": {"number": "282", "iata": "AF282"}
+    }
+  ],
+  "pagination": {
+    "offset": 0,
+    "limit": 5,
+    "total": 150
+  }
+}
+```
+
+### Flight Service
+
+#### Obtenir le statut d'un vol
+
+```bash
+curl http://localhost:8002/api/v1/flights/AF282
+```
+
+**Réponse** :
+
+```json
+{
+  "data": {
+    "flight_date": "2024-11-24",
+    "flight_status": "active",
+    "departure": {
+      "airport": "Charles de Gaulle Airport",
+      "iata": "CDG",
+      "scheduled": "2024-11-24T14:30:00+00:00",
+      "estimated": "2024-11-24T14:45:00+00:00",
+      "delay": 15
+    },
+    "arrival": {
+      "airport": "John F Kennedy International Airport",
+      "iata": "JFK",
+      "scheduled": "2024-11-24T17:15:00+00:00",
+      "estimated": "2024-11-24T17:30:00+00:00"
+    },
+    "airline": {"name": "Air France", "iata": "AF"},
+    "flight": {"number": "282", "iata": "AF282"}
+  }
+}
+```
+
+#### Consulter l'historique d'un vol
+
+```bash
+curl "http://localhost:8002/api/v1/flights/AF282/history?start_date=2024-11-01&end_date=2024-11-24"
+```
+
+**Réponse** :
+
+```json
+{
+  "data": {
+    "flight_iata": "AF282",
+    "period": {
+      "start_date": "2024-11-01",
+      "end_date": "2024-11-24"
+    },
+    "flights": [
+      {
+        "flight_date": "2024-11-24",
+        "flight_status": "active",
+        "departure": {
+          "iata": "CDG",
+          "scheduled": "2024-11-24T14:30:00+00:00"
+        },
+        "arrival": {
+          "iata": "JFK",
+          "scheduled": "2024-11-24T17:15:00+00:00"
+        }
+      }
+    ],
+    "total_flights": 24
+  }
+}
+```
+
+#### Obtenir les statistiques d'un vol
+
+```bash
+curl "http://localhost:8002/api/v1/flights/AF282/statistics?start_date=2024-10-01&end_date=2024-11-24"
+```
+
+**Réponse** :
+
+```json
+{
+  "data": {
+    "flight_iata": "AF282",
+    "period": {
+      "start_date": "2024-10-01",
+      "end_date": "2024-11-24"
+    },
+    "statistics": {
+      "total_flights": 55,
+      "on_time": 42,
+      "delayed": 10,
+      "cancelled": 3,
+      "on_time_rate": 76.36,
+      "average_delay_minutes": 12.5,
+      "max_delay_minutes": 45
+    }
+  }
+}
+```
+
+### Assistant Service
+
+#### Poser une question en langage naturel
+
+```bash
+curl -X POST "http://localhost:8003/api/v1/assistant/answer" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Je suis sur le vol AF282, à quelle heure j'\''arrive ?"}'
+```
+
+**Réponse** :
+
+```json
+{
+  "answer": "Le vol AF282 est prévu à 17h15 (heure locale) avec un retard estimé de 15 minutes. Vous devriez arriver à 17h30.",
+  "data": {
+    "flight_iata": "AF282",
+    "scheduled_arrival": "2024-11-24T17:15:00+00:00",
+    "estimated_arrival": "2024-11-24T17:30:00+00:00",
+    "delay_minutes": 15,
+    "arrival_airport": "JFK"
+  }
+}
+```
+
+#### Interpréter l'intention (sans exécution)
+
+```bash
+curl -X POST "http://localhost:8003/api/v1/assistant/interpret" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Trouve-moi l'\''aéroport le plus proche de Lille"}'
+```
+
+**Réponse** :
+
+```json
+{
+  "intent": "find_nearest_airport",
+  "entities": {
+    "location": "Lille"
+  },
+  "confidence": 0.92,
+  "action": "search_airport_by_address"
+}
+```
+
+### Tester avec requests.http (VS Code)
+
+Un fichier `requests.http` est fourni à la racine avec 43 exemples de requêtes.
+
+Exemples :
+
+```http
+### Rechercher un aéroport
+GET http://localhost:8001/api/v1/airports/CDG
+
+### Vols au départ
+GET http://localhost:8001/api/v1/airports/CDG/departures?limit=3
+
+### Statut d'un vol
+GET http://localhost:8002/api/v1/flights/AF282
+
+### Assistant - Question IA
+POST http://localhost:8003/api/v1/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Quels vols partent de CDG cet après-midi ?"
+}
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Problème : Container ne démarre pas
+
+**Symptôme** : `docker-compose up` échoue
+
+**Solutions** :
+
+1. Vérifier que le fichier `.env` existe et contient toutes les variables obligatoires
+2. Vérifier les logs : `docker-compose logs <service>`
+3. Vérifier que les ports 8001, 8002, 8003, 27017 ne sont pas déjà utilisés
+
+```bash
+# Windows
+netstat -ano | findstr "8001"
+
+# Linux/Mac
+lsof -i :8001
+```
+
+### Problème : Health check échoue
+
+**Symptôme** : Service reste `unhealthy` dans `docker-compose ps`
+
+**Solutions** :
+
+1. Vérifier les logs du service : `docker-compose logs <service>`
+2. Vérifier la connectivité MongoDB : `docker-compose exec mongo mongosh`
+3. Augmenter `start_period` dans `docker-compose.yml` si machine lente
+
+### Problème : Erreur MongoDB Authentication Failed
+
+**Symptôme** : `Authentication failed` dans les logs
+
+**Solutions** :
+
+1. Vérifier que `MONGO_PASSWORD` dans `.env` correspond à celui utilisé par MongoDB
+2. Supprimer les volumes et recréer :
+
+```bash
+docker-compose down -v
+docker-compose up -d
+```
+
+### Problème : API Aviationstack quota dépassé
+
+**Symptôme** : Erreur 429 ou `Monthly API call volume exceeded`
+
+**Solutions** :
+
+1. Activer le mode DEMO pour l'Assistant :
+
+```env
+DEMO_MODE=true
+```
+
+2. Le cache MongoDB (TTL 300s) réduit les appels API - vérifier qu'il fonctionne :
+
+```bash
+docker-compose exec mongo mongosh hello_mira --eval "db.airport_cache.countDocuments()"
+```
+
+### Problème : Mistral API Key invalide
+
+**Symptôme** : Erreur 401 sur les requêtes Assistant
+
+**Solutions** :
+
+1. Vérifier la clé API dans `.env` : `MISTRAL_API_KEY=xxx`
+
+2. Tester la clé directement :
+
+```bash
+curl https://api.mistral.ai/v1/models \
+  -H "Authorization: Bearer VOTRE_CLE"
+```
+
+3. Activer le mode DEMO si pas de clé valide
+
+### Problème : CORS errors depuis le frontend
+
+**Symptôme** : `CORS policy: No 'Access-Control-Allow-Origin' header`
+
+**Solutions** :
+
+1. Vérifier que l'origine est autorisée dans `docker-compose.yml` :
+
+```yaml
+CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
+```
+
+2. Ajouter l'origine du frontend si différente
+
+### Problème : Container redémarre en boucle
+
+**Symptôme** : `docker-compose ps` montre `Restarting`
+
+**Solutions** :
+
+1. Vérifier les logs : `docker-compose logs --tail=50 <service>`
+2. Causes fréquentes :
+   - Variable d'environnement manquante
+   - Erreur dans le code Python (vérifier syntax)
+   - MongoDB non accessible
+
+### Logs utiles
+
+```bash
+# Logs en temps réel
+docker-compose logs -f
+
+# Logs d'un service spécifique
+docker-compose logs -f assistant
+
+# Dernières 100 lignes
+docker-compose logs --tail=100
+
+# Logs avec timestamps
+docker-compose logs -t
+```
+
+---
+
+**Note** : Pour toute question ou bug, ouvrir une issue sur GitHub avec les logs complets.

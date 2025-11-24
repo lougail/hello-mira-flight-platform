@@ -10,3 +10,4 @@ env/
 # IDE
 .vscode/
 .idea/
+.markdownlint.json
