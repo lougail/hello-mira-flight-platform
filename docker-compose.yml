@@ -102,7 +102,7 @@ services:
       CACHE_TTL: 300
 
       # Application
-      DEBUG: "false"
+      DEBUG: ${DEBUG:-false}
 
       # CORS (pour le frontend React)
       CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
@@ -161,7 +161,7 @@ services:
       CACHE_TTL: 300
 
       # Application
-      DEBUG: "false"
+      DEBUG: ${DEBUG:-false}
 
       # CORS (pour le frontend React)
       CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
@@ -212,7 +212,7 @@ services:
     environment:
       # API Mistral AI
       MISTRAL_API_KEY: ${MISTRAL_API_KEY}
-      MISTRAL_MODEL: "open-mixtral-8x7b"
+      MISTRAL_MODEL: ${MISTRAL_MODEL:-open-mixtral-8x7b}
       MISTRAL_TEMPERATURE: 0.0
 
       # URLs des microservices
@@ -221,8 +221,8 @@ services:
       HTTP_TIMEOUT: 30
 
       # Application
-      DEBUG: "false"
-      DEMO_MODE: "false"  # Mode démo avec données mockées (pas de quota API Aviationstack)
+      DEBUG: ${DEBUG:-false}
+      DEMO_MODE: ${DEMO_MODE:-false}  # Mode démo avec données mockées (pas de quota API Aviationstack)
       MAX_TOKENS: 1000
       ENABLE_STREAMING: "false"
 

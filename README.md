@@ -1,417 +1,369 @@
-# Hello Mira Flight Platform
+# ✈️ Hello Mira - Flight Platform
 
-Plateforme de microservices pour la recherche d'aéroports et le suivi de vols en temps réel.
+> **Plateforme intelligente pour les voyageurs** : Microservices pour la gestion des vols et aéroports avec Assistant IA conversationnel
 
-## Architecture
+Architecture moderne combinant FastAPI, MongoDB, LangGraph et Mistral AI pour fournir des informations de vol en temps réel avec une interface conversationnelle en langage naturel.
 
-Le système est composé de microservices indépendants :
+---
 
-- **Airport** (port 8001) : Recherche d'aéroports et consultation des vols au départ/arrivée
-- **Flight** (port 8002) : Suivi individuel de vols avec historique et statistiques
-- **Assistant** (port 8003) : IA conversationnelle avec LangGraph et Mistral AI
+## 🎯 Vue d'Ensemble
 
-## Prérequis
+### Fonctionnalités
 
-- Docker et Docker Compose
-- Clé API Aviationstack (gratuite sur [aviationstack.com](https://aviationstack.com))
-- Clé API Mistral AI (crédits gratuits sur [console.mistral.ai](https://console.mistral.ai))
+**Microservice Airport (Port 8001) :**
 
-## Installation
+- ✅ Recherche d'aéroport par code IATA
+- ✅ Recherche d'aéroport par nom de lieu (avec géocodage)
+- ✅ Recherche d'aéroport par coordonnées GPS
+- ✅ Recherche d'aéroport par adresse
+- ✅ Liste des vols au départ d'un aéroport
+- ✅ Liste des vols à l'arrivée d'un aéroport
 
-1. Cloner le repository
+**Microservice Flight (Port 8002) :**
+
+- ✅ Statut en temps réel d'un vol
+- ✅ Historique d'un vol sur une période
+- ✅ Statistiques agrégées (ponctualité, retards, annulations)
+
+**Microservice Assistant (Port 8003) :**
+
+- ✅ Interprétation d'intention en langage naturel
+- ✅ Réponse complète avec orchestration LangGraph
+- ✅ 7 outils disponibles (2 flight + 5 airport)
+
+**Optimisations :**
+
+- ✅ Cache MongoDB avec TTL de 300 secondes (5 minutes)
+- ✅ Historique persistant avec accumulation progressive
+- ✅ Index MongoDB optimisés (TTL + composite unique)
+
+---
+
+## 🔧 Stack Technique
+
+| Composant | Technologie | Version |
+|-----------|-------------|---------|
+| **Backend** | FastAPI | 0.121.2 |
+| **Serveur ASGI** | Uvicorn | 0.38.0 (Airport/Flight) / 0.34.0 (Assistant) |
+| **Validation** | Pydantic | 2.12.4 |
+| **Configuration** | Pydantic Settings | 2.12.0 |
+| **Base de données** | MongoDB | 7.0 |
+| **Driver MongoDB** | PyMongo | 4.15.4 |
+| **Client HTTP** | httpx | 0.28.1 (Airport/Flight) / 0.27.0 (Assistant) |
+| **Orchestration IA** | LangGraph | 0.2.45 |
+| **LangChain Core** | langchain-core | 0.3.21 |
+| **Integration Mistral** | langchain-mistralai | 0.2.2 |
+| **Modèle LLM** | Mistral AI | mistral-large-latest |
+| **API Externe Vols** | Aviationstack | Basic Plan |
+| **Géocodage** | Nominatim (OSM) | - |
+| **Container** | Docker Compose | v3.8 |
+
+---
+
+## 📋 Table des Matières
+
+- [Vue d'Ensemble](#-vue-densemble)
+- [Stack Technique](#-stack-technique)
+- [Architecture](#-architecture)
+- [Prérequis](#-prérequis)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Endpoints API](#-endpoints-api)
+- [Mode DEMO](#-mode-demo)
+- [Exemples d'Utilisation](#-exemples-dutilisation)
+- [Troubleshooting](#-troubleshooting)
+
+---
+
+## 🏗️ Architecture
+
+### Structure du Projet
+
+```text
+hello-mira-flight-platform/
+├── airport/                          # Microservice Airport (port 8001)
+│   ├── __init__.py
+│   ├── main.py                       # Point d'entrée FastAPI
+│   ├── Dockerfile                    # Image Docker multi-stage
+│   ├── requirements.txt              # Dépendances Python
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── responses.py              # Schémas Pydantic réponses API
+│   │   └── routes/
+│   │       ├── __init__.py
+│   │       ├── airports.py           # 4 endpoints recherche aéroports
+│   │       ├── flights.py            # 2 endpoints vols départ/arrivée
+│   │       └── health.py             # Health check + readiness
+│   ├── clients/
+│   │   ├── __init__.py
+│   │   └── aviationstack_client.py   # Client HTTP Aviationstack
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── settings.py               # Configuration Pydantic Settings
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── enums.py                  # FlightStatus enum
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   ├── airport.py            # Schémas API aéroports
+│   │   │   └── flight.py             # Schémas API vols
+│   │   └── domain/
+│   │       ├── __init__.py
+│   │       ├── airport.py            # Modèle domaine Airport
+│   │       └── flight.py             # Modèle domaine Flight
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── airport_service.py        # Logique métier aéroports
+│   │   ├── cache_service.py          # Service cache MongoDB
+│   │   └── geocoding_service.py      # Géocodage Nominatim
+│   └── tests/
+│       ├── __init__.py
+│       ├── test_api_structure.py
+│       ├── test_client.py
+│       ├── test_models.py
+│       ├── test_services.py
+│       └── test_settings.py
+│
+├── flight/                           # Microservice Flight (port 8002)
+│   ├── __init__.py
+│   ├── main.py                       # Point d'entrée FastAPI
+│   ├── Dockerfile                    # Image Docker multi-stage
+│   ├── requirements.txt              # Dépendances Python
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── responses.py              # Schémas Pydantic réponses API
+│   │   └── routes/
+│   │       ├── __init__.py
+│   │       └── flights.py            # 3 endpoints (statut, historique, stats)
+│   ├── clients/
+│   │   ├── __init__.py
+│   │   └── aviationstack_client.py   # Client HTTP Aviationstack
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── settings.py               # Configuration Pydantic Settings
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── enums.py                  # FlightStatus enum
+│   │   └── domain/
+│   │       ├── __init__.py
+│   │       ├── airport.py            # Modèle domaine Airport
+│   │       └── flight.py             # Modèle domaine Flight
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── cache_service.py          # Service cache MongoDB
+│   │   └── flight_service.py         # Logique métier vols + stats
+│   └── tests/
+│       └── __init__.py
+│
+├── assistant/                        # Microservice Assistant (port 8003)
+│   ├── __init__.py
+│   ├── main.py                       # Point d'entrée FastAPI
+│   ├── Dockerfile                    # Image Docker multi-stage
+│   ├── requirements.txt              # Dépendances Python (+ LangGraph)
+│   ├── agents/
+│   │   ├── __init__.py
+│   │   └── assistant_agent.py        # LangGraph StateGraph (3 nodes)
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── routes/
+│   │       ├── __init__.py
+│   │       └── assistant.py          # 2 endpoints (interpret, answer)
+│   ├── clients/
+│   │   ├── __init__.py
+│   │   ├── airport_client.py         # Proxy HTTP vers Airport Service
+│   │   └── flight_client.py          # Proxy HTTP vers Flight Service
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── settings.py               # Configuration + DEMO_MODE flag
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   ├── requests.py           # PromptRequest schema
+│   │   │   └── responses.py          # InterpretResponse, AnswerResponse
+│   │   └── domain/
+│   │       ├── __init__.py
+│   │       └── state.py              # LangGraph State TypedDict
+│   └── tools/
+│       ├── __init__.py
+│       ├── airport_tools.py          # 5 outils LangGraph aéroports
+│       ├── flight_tools.py           # 2 outils LangGraph vols
+│       └── mock_data/
+│           ├── __init__.py
+│           ├── airports.py           # Mock LIL, CDG (DEMO mode)
+│           └── flights.py            # Mock AV15, AF282 (DEMO mode)
+│
+├── CLAUDE.md                         # Instructions pour Claude
+├── docker-compose.yml                # Orchestration 4 services
+├── requests.http                     # 43 exemples de requêtes
+├── .env                              # Secrets (non versionné, .gitignore)
+├── .gitignore
+└── README.md
+```
+
+### MongoDB Collections
+
+| Collection | Type | Description | Index |
+|------------|------|-------------|-------|
+| `airport_cache` | Cache | Aéroports consultés | TTL sur `expires_at` (300s) |
+| `flight_cache` | Cache | Vols consultés (temps réel) | TTL sur `expires_at` (300s) |
+| `flights` | Persistant | Historique complet des vols | Composite unique `(flight_iata, flight_date)` |
+
+---
+
+## ✅ Prérequis
+
+- **Docker** >= 20.10
+- **Docker Compose** >= 1.29
+- **Clés API** :
+  - [Aviationstack](https://aviationstack.com) (Basic Plan gratuit - 100 calls/mois)
+  - [Mistral AI](https://console.mistral.ai/) (crédits gratuits disponibles)
+
+---
+
+## 🚀 Installation
+
+### 1. Cloner le Repository
 
 ```bash
 git clone https://github.com/lougail/hello-mira-flight-platform.git
 cd hello-mira-flight-platform
 ```
 
-2. Créer le fichier `.env` à la racine
+### 2. Créer le Fichier `.env`
+
+Créer un fichier `.env` à la racine du projet avec vos clés API :
 
 ```env
-AVIATIONSTACK_API_KEY=votre_cle_aviationstack
-MISTRAL_API_KEY=votre_cle_mistral
-MONGO_PASSWORD=un_mot_de_passe_securise
+# API Aviationstack (OBLIGATOIRE)
+AVIATIONSTACK_API_KEY=votre_cle_ici
+
+# MongoDB (OBLIGATOIRE)
+MONGO_PASSWORD=votre_mot_de_passe_securise
+
+# Mistral AI (OBLIGATOIRE pour mode PRODUCTION)
+MISTRAL_API_KEY=votre_cle_mistral_ici
 ```
 
-3. Lancer l'application
+### 3. Lancer les Services
 
 ```bash
-docker-compose up
+docker-compose up -d
 ```
 
-Les APIs seront disponibles sur :
-- **Airport** : `http://localhost:8001`
-- **Flight** : `http://localhost:8002`
-- **Assistant** : `http://localhost:8003`
+Les services démarrent dans cet ordre :
 
-## Utilisation
+1. MongoDB (avec health check)
+2. Airport Service (attend MongoDB)
+3. Flight Service (attend MongoDB)
+4. Assistant Service (attend Airport + Flight)
 
-### Documentation interactive
-
-Une fois l'application lancée, la documentation Swagger est accessible sur :
-
-**Microservice Airport :**
-- Swagger UI : http://localhost:8001/docs
-- ReDoc : http://localhost:8001/redoc
-
-**Microservice Flight :**
-- Swagger UI : http://localhost:8002/docs
-- ReDoc : http://localhost:8002/redoc
-
-**Microservice Assistant :**
-- Swagger UI : http://localhost:8003/docs
-- ReDoc : http://localhost:8003/redoc
-
-### Endpoints disponibles
-
-#### Microservice Airport (port 8001)
-
-**Recherche d'aéroports**
+### 4. Vérifier l'État
 
 ```bash
-# Par code IATA
-GET /api/v1/airports/{iata}
-# Exemple : GET /api/v1/airports/CDG
+# Vérifier que tous les services sont UP
+docker-compose ps
 
-# Par nom de lieu (ville, région)
-GET /api/v1/airports/search?name={query}&country_code={code}
-# Exemple : GET /api/v1/airports/search?name=Paris&country_code=FR
+# Health checks
+curl http://localhost:8001/api/v1/health  # Airport
+curl http://localhost:8002/api/v1/health  # Flight
+curl http://localhost:8003/api/v1/health  # Assistant
 
-# Par coordonnées GPS
-GET /api/v1/airports/nearest-by-coords?latitude={lat}&longitude={lon}&country_code={code}
-# Exemple : GET /api/v1/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FR
-
-# Par adresse (avec géocodage automatique)
-GET /api/v1/airports/nearest-by-address?address={address}&country_code={code}
-# Exemple : GET /api/v1/airports/nearest-by-address?address=Lille,France&country_code=FR
+# Logs en temps réel
+docker-compose logs -f assistant
 ```
 
-#### Vols au départ/arrivée d'un aéroport (Airport API)
+### 5. Accéder à la Documentation
 
-```bash
-# Vols au départ d'un aéroport
-GET /api/v1/airports/{iata}/departures?limit=10&offset=0
-# Exemple : GET /api/v1/airports/CDG/departures?limit=20
+- **Airport API** : <http://localhost:8001/docs>
+- **Flight API** : <http://localhost:8002/docs>
+- **Assistant API** : <http://localhost:8003/docs>
 
-# Vols à l'arrivée d'un aéroport
-GET /api/v1/airports/{iata}/arrivals?limit=10&offset=0
-# Exemple : GET /api/v1/airports/CDG/arrivals?limit=20
-```
+---
 
-#### Suivi de vols (Flight)
+## ⚙️ Configuration
 
-```bash
-# Statut en temps réel d'un vol
-GET /api/v1/flights/{flight_iata}
+### Variables d'Environnement
 
-# Historique d'un vol sur une période
-GET /api/v1/flights/{flight_iata}/history?start_date=2025-11-01&end_date=2025-11-14
+Le projet utilise une architecture en 3 couches pour la configuration :
 
-# Statistiques agrégées d'un vol
-GET /api/v1/flights/{flight_iata}/statistics?start_date=2025-11-01&end_date=2025-11-14
-```
+1. **`.env`** : Secrets et configuration changeant selon l'environnement (dev/prod)
+2. **`docker-compose.yml`** : Overrides pour l'environnement Docker
+3. **`*/config/settings.py`** : Valeurs par défaut techniques
 
-#### Suivi individuel de vols (Flight API)
+### Fichier `.env` (Obligatoire)
 
-```bash
-# Statut en temps réel d'un vol
-GET /api/v1/flights/{flight_iata}
-
-# Historique d'un vol sur une période
-GET /api/v1/flights/{flight_iata}/history?start_date=2025-11-21&end_date=2025-11-22
-
-# Statistiques agrégées (ponctualité, retards)
-GET /api/v1/flights/{flight_iata}/statistics?start_date=2025-11-21&end_date=2025-11-22
-```
-
-#### Assistant IA conversationnel (Assistant API - port 8003)
-
-**Interprétation de langage naturel**
-
-```bash
-# Interpréter une intention sans exécuter d'action
-POST /api/v1/assistant/interpret
-Body: {"prompt": "Je suis sur le vol AF282, à quelle heure j'arrive ?"}
-
-# Réponse complète en langage naturel (orchestration complète)
-POST /api/v1/assistant/answer
-Body: {"prompt": "Trouve-moi l'aéroport le plus proche de Lille"}
-```
-
-**Exemples de prompts supportés :**
-
-```bash
-# Statut d'un vol
-curl -X POST http://localhost:8003/api/v1/assistant/answer \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Je suis sur le vol AF282, à quelle heure vais-je arriver ?"}'
-
-# Recherche d'aéroport
-curl -X POST http://localhost:8003/api/v1/assistant/answer \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Trouve-moi l\'aéroport le plus proche de Lille"}'
-
-# Vols au départ
-curl -X POST http://localhost:8003/api/v1/assistant/answer \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Quels vols partent de CDG cet après-midi ?"}'
-
-# Statistiques d'un vol
-curl -X POST http://localhost:8003/api/v1/assistant/answer \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Donne-moi les statistiques du vol BA117 sur les 30 derniers jours"}'
-```
-
-### Mode DEMO
-
-Le microservice Assistant inclut un **mode DEMO** qui utilise des données mockées cohérentes au lieu d'appeler les vrais microservices Airport et Flight. Ce mode est utile pour :
-
-- 🎯 **Démonstration** sans dépendre du quota de l'API externe Aviationstack
-- 🧪 **Tests** de l'orchestration LangGraph et du function calling Mistral AI
-- 📊 **Présentation** avec des données prévisibles et cohérentes
-
-**Activation :**
-
-Le mode DEMO est activé par défaut dans docker-compose.yml via la variable `DEMO_MODE=true`.
-
-**Données mockées disponibles :**
-
-- ✈️ Vol AV15 (Bogotá → CDG, en vol avec retard de 18min)
-- ✈️ Vol AF282 (CDG → Tokyo, prévu dans 4h)
-- 🛫 5 vols au départ de CDG (AF007, EK073, VY8004, BA314, AF282)
-- 🏢 Aéroport de Lille (LIL) pour recherche par adresse
-
-**Exemples de prompts fonctionnels en mode DEMO :**
-```bash
-# Vol AV15 avec retard
-POST /api/v1/assistant/answer
-Body: {"prompt": "Je suis sur le vol AV15, à quelle heure vais-je arriver ?"}
-→ Réponse : Vol en cours, ETA 21h47 avec 18min de retard
-
-# Recherche aéroport Lille
-POST /api/v1/assistant/answer
-Body: {"prompt": "Trouve-moi l'aéroport le plus proche de Lille"}
-→ Réponse : Lille Airport (LIL) à 8.5km
-
-# Vols au départ de CDG
-POST /api/v1/assistant/answer
-Body: {"prompt": "Quels vols partent de CDG cet après-midi ?"}
-→ Réponse : 5 vols (AF007 vers JFK, EK073 vers Dubai, etc.)
-```
-
-**Désactivation :**
-
-Pour utiliser les vrais microservices, modifiez `docker-compose.yml` :
-
-```yaml
-environment:
-  DEMO_MODE: "false"  # Désactive le mode demo
-```
-
-Puis redémarrez : `docker compose restart assistant`
-
-### Exemples
-
-Le fichier `requests.http` à la racine contient des exemples prêts à l'emploi. Utilisable avec l'extension VSCode REST Client ou avec curl.
-
-**Exemples Airport :**
-```bash
-# Microservice Airport
-# Recherche de l'aéroport CDG
-curl http://localhost:8001/api/v1/airports/CDG
-
-# Recherche d'aéroports par nom de lieu
-curl "http://localhost:8001/api/v1/airports/search?name=Paris&country_code=FR"
-
-# Aéroport le plus proche de Paris
-curl "http://localhost:8001/api/v1/airports/nearest?lat=48.8566&lon=2.3522&radius=50"
-
-# Microservice Flight
-# Statut du vol AF282
-curl http://localhost:8002/api/v1/flights/AF282
-
-# Historique du vol AF282
-curl "http://localhost:8002/api/v1/flights/AF282/history?start_date=2025-11-21&end_date=2025-11-22"
-
-# Statistiques du vol AF282
-curl "http://localhost:8002/api/v1/flights/AF282/statistics?start_date=2025-11-21&end_date=2025-11-22"
-```
-
-## Développement
-
-### Structure du projet
-
-```
-hello-mira-flight-platform/
-├── airport/                 # Microservice Airport
-│   ├── api/                # Routes FastAPI
-│   │   └── routes/
-│   ├── clients/            # Client API Aviationstack
-│   ├── config/             # Configuration et settings
-│   ├── models/             # Modèles Pydantic
-│   │   ├── api/           # Modèles de réponse API
-│   │   └── domain/        # Modèles métier
-│   ├── services/           # Logique métier
-│   ├── tests/             # Tests unitaires
-│   ├── Dockerfile
-│   ├── main.py            # Point d'entrée
-│   └── requirements.txt
-├── flight/                  # Microservice Flight
-│   ├── api/                # Routes FastAPI
-│   │   └── routes/
-│   ├── clients/            # Client API Aviationstack
-│   ├── config/             # Configuration et settings
-│   ├── models/             # Modèles Pydantic
-│   │   ├── api/           # Modèles de réponse API
-│   │   └── domain/        # Modèles métier
-│   ├── services/           # Logique métier
-│   ├── Dockerfile
-│   ├── main.py            # Point d'entrée
-│   └── requirements.txt
-├── docker-compose.yml
-├── requests.http          # Collection de requêtes de test
-└── README.md
-```
-
-### Lancement en mode développement
-
-**Microservice Airport :**
-```bash
-cd airport
-python -m venv venv
-source venv/bin/activate  # Sur Windows : venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8001
-```
-
-**Microservice Flight :**
-```bash
-cd flight
-python -m venv venv
-source venv/bin/activate  # Sur Windows : venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8002
-```
-
-MongoDB doit être accessible sur `mongodb://localhost:27017` ou modifier `MONGODB_URL` dans `.env`.
-
-### Tests
-
-```bash
-# Tests Airport
-cd airport
-pytest
-
-# Tests Flight
-cd flight
-pytest
-```
-
-## Stack technique
-
-- **Framework** : FastAPI 0.121.2
-- **Base de données** : MongoDB 7.0 (cache avec TTL)
-- **Client HTTP** : httpx (async)
-- **Validation** : Pydantic 2.12.4
-- **API externe** : Aviationstack
-- **Géocodage** : Nominatim (OpenStreetMap)
-
-## Cache et optimisations
-
-Le système implémente plusieurs optimisations :
-
-- Cache MongoDB avec TTL configurable (300s par défaut)
-- Rate limiting intelligent sur l'API externe
-- Retry automatique avec exponential backoff
-- Géocodage d'adresses en coordonnées GPS
-
-## Configuration
-
-Variables d'environnement disponibles (fichier `.env`) :
+Créer un fichier `.env` à la racine avec les variables suivantes :
 
 ```env
-# API externe (obligatoire)
-AVIATIONSTACK_API_KEY=xxx
+# =============================================================================
+# API KEYS (Secrets - OBLIGATOIRE)
+# =============================================================================
+AVIATIONSTACK_API_KEY=votre_cle_ici          # ✅ OBLIGATOIRE
+MISTRAL_API_KEY=votre_cle_mistral_ici        # ✅ OBLIGATOIRE (si DEMO_MODE=false)
 
-# MongoDB
-MONGODB_URL=mongodb://localhost:27017
-MONGODB_DATABASE=hello_mira
-MONGO_PASSWORD=xxx
+# =============================================================================
+# MONGODB
+# =============================================================================
+MONGO_PASSWORD=votre_mot_de_passe            # ✅ OBLIGATOIRE
 
-# Cache
-CACHE_TTL=300
-
-# Application
-DEBUG=false
+# =============================================================================
+# APPLICATION SETTINGS (Configurables selon environnement)
+# =============================================================================
+DEBUG=false                                  # true en dev, false en prod
+DEMO_MODE=false                              # true = données mockées (pas d'appels API)
+MISTRAL_MODEL=open-mixtral-8x7b              # open-mixtral-8x7b (gratuit) ou mistral-large-latest (payant)
 ```
 
-## Intégration avec l'assistant conversationnel (Partie 4)
+### Variables Docker Compose
 
-Le microservice Airport est conçu pour être facilement consommé par l'assistant IA. Exemples de mapping prompts → endpoints :
+Lors du déploiement Docker, `docker-compose.yml` override certaines variables :
 
-| Prompt utilisateur | Endpoint à appeler | Traitement assistant |
-|-------------------|-------------------|---------------------|
-| "Trouve-moi l'aéroport le plus proche de Lille" | `GET /airports/nearest-by-address?address=Lille,France&country_code=FR` | Extraction : lieu + pays |
-| "Quels vols partent de CDG cet après-midi ?" | `GET /airports/CDG/departures?limit=100` | Extraction : code IATA<br>Filtrage : horaires 14h-18h |
-| "Aéroports près de 48.8566, 2.3522" | `GET /airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FR` | Extraction : coords + pays |
-| "Cherche aéroports à Paris" | `GET /airports/search?name=Paris&country_code=FR` | Extraction : lieu + pays |
+#### Services Airport & Flight
 
-**Points forts pour l'IA :**
-- ✅ Endpoints explicites et prévisibles
-- ✅ Réponses structurées (JSON Pydantic)
-- ✅ Tous les horaires en ISO 8601
-- ✅ country_code systématique (réduit les ambiguïtés)
-- ✅ Pagination pour grandes listes
+| Variable | Valeur Docker | Description |
+|----------|---------------|-------------|
+| `MONGODB_URL` | `mongodb://admin:${MONGO_PASSWORD}@mongo:27017` | URL avec authentification |
+| `MONGODB_DATABASE` | `hello_mira` | Nom de la base de données |
+| `MONGODB_TIMEOUT` | `5000` | Timeout connexion (ms) |
+| `CACHE_TTL` | `300` | Durée cache (5 minutes) |
+| `DEBUG` | `${DEBUG:-false}` | Utilise .env ou false par défaut |
 
-## Choix architecturaux
+#### Service Assistant
 
-### Recherche d'aéroports par nom (OpenStreetMap)
+| Variable | Valeur Docker | Description |
+|----------|---------------|-------------|
+| `MISTRAL_MODEL` | `${MISTRAL_MODEL:-open-mixtral-8x7b}` | Utilise .env ou open-mixtral-8x7b |
+| `MISTRAL_TEMPERATURE` | `0.0` | Température LLM (déterministe) |
+| `AIRPORT_API_URL` | `http://airport:8001/api/v1` | URL interne Docker Airport |
+| `FLIGHT_API_URL` | `http://flight:8002/api/v1` | URL interne Docker Flight |
+| `HTTP_TIMEOUT` | `30` | Timeout appels HTTP (secondes) |
+| `DEBUG` | `${DEBUG:-false}` | Utilise .env ou false |
+| `DEMO_MODE` | `${DEMO_MODE:-false}` | Utilise .env ou false |
+| `MAX_TOKENS` | `1000` | Tokens max pour réponses LLM |
+| `ENABLE_STREAMING` | `false` | Streaming désactivé |
 
-Le plan Basic d'Aviationstack ne supporte pas le paramètre `search` (retourne 403 Forbidden). Pour contourner cette limitation :
+### Variables settings.py (Defaults)
 
-1. **Géocodage du nom de lieu** via Nominatim (OpenStreetMap)
-   - Exemple : "Paris" → coordonnées GPS (48.8566, 2.3522)
-2. **Récupération des aéroports** du pays via Aviationstack
-3. **Calcul de distance** avec formule de Haversine
-4. **Tri par proximité** au lieu géocodé
+Chaque microservice définit des valeurs par défaut dans `*/config/settings.py` :
 
-**Avantages :**
-- ✅ Fonctionne avec villes, régions, quartiers
-- ✅ Tolérant aux variations de noms
-- ✅ Résultats triés par pertinence géographique
+| Variable | Défaut | Description |
+|----------|--------|-------------|
+| `aviationstack_base_url` | `http://api.aviationstack.com/v1` | URL API Aviationstack |
+| `aviationstack_timeout` | `30` | Timeout requêtes (secondes) |
+| `mongodb_url` | `mongodb://localhost:27017` | URL MongoDB (local) |
+| `mongodb_database` | `hello_mira` | Nom base de données |
+| `cache_ttl` | `300` | Durée cache (secondes) |
+| `app_name` | `Hello Mira - [Service]` | Nom du service |
+| `app_version` | `1.0.0` | Version |
+| `cors_origins` | `["http://localhost:3000", ...]` | Origines CORS autorisées |
 
-### Séparation des endpoints `/nearest`
+**Note** : Ces valeurs sont overridées par docker-compose.yml en production
 
-Deux endpoints distincts au lieu d'un seul avec paramètres mutuellement exclusifs :
-- `/airports/nearest-by-coords` : Pour coordonnées GPS précises
-- `/airports/nearest-by-address` : Pour adresses textuelles (géocodage inclus)
+---
 
-**Avantages :**
-- ✅ API plus explicite et RESTful
-- ✅ Documentation plus claire
-- ✅ Validation de paramètres simplifiée
+**Note** : Ce README documente l'état du projet au 24 novembre 2024. Toutes les informations sont basées sur le code réel du repository.
 
-### Cache MongoDB avec TTL
+---
 
-Réduction des appels à l'API externe (limite de 100 req/mois sur plan gratuit) :
-- TTL par défaut : 300s (5 minutes)
-- Collections séparées : `airport_cache`, `flight_cache`
-- Logs de hit-rate pour monitoring
-
-## Limites connues
-
-- **API Aviationstack gratuite** : 100 requêtes/mois maximum
-- **Géocodage Nominatim** : 1 seconde entre chaque requête (rate limiting)
-- **Plan Basic Aviationstack** :
-  - Pas de paramètre `search` pour les aéroports
-  - Pas de `flight_date` seul pour l'historique
-  - Pas de combinaison `flight_iata` + `flight_date`
-- **country_code requis** : Pour éviter les ambiguïtés géographiques
-
-## Licence
-
-Projet réalisé dans le cadre du test technique Hello Mira.
-
-## Contact
-
-Louis - [GitHub](https://github.com/lougail)
+<!-- SECTIONS À COMPLÉTER : Endpoints API, Mode DEMO, Exemples, Troubleshooting -->
