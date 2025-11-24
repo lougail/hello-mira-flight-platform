@@ -85,7 +85,7 @@ class AirportClient:
         """
         # Mode DEMO : retourner données mockées
         if self.demo_mode:
-            from mock_data import MOCK_AIRPORTS
+            from tools.mock_data import MOCK_AIRPORTS
             airport_data = MOCK_AIRPORTS.get(iata.upper())
             if airport_data:
                 logger.info(f"DEMO MODE: Returning mock data for airport {iata}")
@@ -160,7 +160,7 @@ class AirportClient:
         """
         # Mode DEMO : retourner données mockées
         if self.demo_mode:
-            from mock_data import MOCK_AIRPORTS
+            from tools.mock_data import MOCK_AIRPORTS
             # Détecte si c'est une recherche sur Lille
             if "lille" in address.lower():
                 airport_data = MOCK_AIRPORTS.get("nearest_lille")
@@ -196,7 +196,7 @@ class AirportClient:
         """
         # Mode DEMO : retourner données mockées
         if self.demo_mode:
-            from mock_data import MOCK_DEPARTURES
+            from tools.mock_data import MOCK_DEPARTURES
             departures_data = MOCK_DEPARTURES.get(iata.upper())
             if departures_data:
                 logger.info(f"DEMO MODE: Returning mock departures for {iata}")

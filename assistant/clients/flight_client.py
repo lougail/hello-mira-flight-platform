@@ -85,7 +85,7 @@ class FlightClient:
         """
         # Mode DEMO : retourner données mockées
         if self.demo_mode:
-            from mock_data import MOCK_FLIGHTS
+            from tools.mock_data import MOCK_FLIGHTS
             flight_data = MOCK_FLIGHTS.get(flight_iata.upper())
             if flight_data:
                 logger.info(f"DEMO MODE: Returning mock data for flight {flight_iata}")
@@ -138,7 +138,7 @@ class FlightClient:
         """
         # Mode DEMO : retourner statistiques mockées
         if self.demo_mode:
-            from mock_data import MOCK_FLIGHT_STATISTICS
+            from tools.mock_data import MOCK_FLIGHT_STATISTICS
             stats_data = MOCK_FLIGHT_STATISTICS.get(flight_iata.upper())
             if stats_data:
                 logger.info(f"DEMO MODE: Returning mock statistics for flight {flight_iata}")
