@@ -4,22 +4,24 @@ Configuration du microservice Assistant.
 Gestion des variables d'environnement et settings globaux.
 """
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
+from pathlib import Path
 
 
 class Settings(BaseSettings):
     """
     Configuration de l'application Assistant.
 
-    Les valeurs sont chargées depuis le fichier .env à la racine.
+    Les valeurs sont chargées depuis le fichier .env à la racine du projet
+    ou depuis les variables d'environnement (priorité aux env vars).
     """
 
     # ==========================================================================
     # API EXTERNE - Mistral AI
     # ==========================================================================
 
-    mistral_api_key: str
+    mistral_api_key: str = ""  # Valeur par défaut pour éviter erreur IDE
     mistral_model: str = "mistral-large-latest"
     mistral_temperature: float = 0.0  # Déterministe pour meilleure cohérence
 
@@ -58,9 +60,14 @@ class Settings(BaseSettings):
     # Nombre max de tokens pour les réponses
     max_tokens: int = 1000
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    # Configuration de Pydantic Settings v2
+    model_config = SettingsConfigDict(
+        # Chercher .env à la racine du projet (un niveau au-dessus de assistant/)
+        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        env_file_encoding='utf-8',
+        case_sensitive=False,
+        extra='ignore'  # Ignorer les variables d'env non définies dans le modèle
+    )
 
 
 # Instance globale des settings
