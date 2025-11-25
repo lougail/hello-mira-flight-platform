@@ -28,6 +28,7 @@ from config.settings import settings
 from clients.aviationstack_client import AviationstackClient
 from services import CacheService, FlightService
 from api.routes import flights
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # ============================================================================
 # CONFIGURATION DU LOGGING
@@ -230,6 +231,16 @@ app = FastAPI(
     lifespan=lifespan,
     debug=settings.debug
 )
+
+
+# ============================================================================
+# PROMETHEUS METRICS
+# ============================================================================
+
+# Configure Prometheus Instrumentator
+Instrumentator().instrument(app).expose(app)
+
+logger.info("✅ Prometheus metrics enabled on /metrics")
 
 
 # ============================================================================

@@ -28,6 +28,7 @@ from config.settings import settings
 from clients.aviationstack_client import AviationstackClient
 from services import CacheService, GeocodingService, AirportService
 from api.routes import router
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # ============================================================================
 # CONFIGURATION DU LOGGING
@@ -177,32 +178,32 @@ app = FastAPI(
     version=settings.app_version,
     description="""
     Microservice Airport pour la plateforme Hello Mira.
-    
+
     ## Fonctionnalités
-    
+
     ### Recherche d'aéroports
     - Par code IATA (ex: CDG, JFK)
     - Par nom ou ville
     - Par proximité (coordonnées GPS ou adresse)
-    
+
     ### Vols
     - Liste des départs d'un aéroport
     - Liste des arrivées d'un aéroport
     - Statuts en temps réel
-    
+
     ### Optimisations
     - Cache MongoDB avec TTL configurable
     - Rate limiting de l'API externe
     - Géocodage avec Nominatim (gratuit)
-    
+
     ## Documentation
-    
+
     - **Swagger UI** : [/docs](/docs)
     - **ReDoc** : [/redoc](/redoc)
     - **OpenAPI JSON** : [/openapi.json](/openapi.json)
-    
+
     ## Test technique Hello Mira
-    
+
     Ce microservice fait partie du test technique Hello Mira.
     - Partie 1 : Microservice Airport ✅
     - Partie 2 : Microservice Flight (à venir)
@@ -215,6 +216,16 @@ app = FastAPI(
     lifespan=lifespan,
     debug=settings.debug
 )
+
+
+# ============================================================================
+# PROMETHEUS METRICS
+# ============================================================================
+
+# Configure Prometheus Instrumentator
+Instrumentator().instrument(app).expose(app)
+
+logger.info("✅ Prometheus metrics enabled on /metrics")
 
 
 # ============================================================================
