@@ -1,0 +1,22 @@
+# ============================================================================
+# GRAFANA DASHBOARDS - Configuration du provisioning
+# ============================================================================
+#
+# Ce fichier configure Grafana pour charger automatiquement les dashboards
+# depuis /var/lib/grafana/dashboards au démarrage.
+#
+# ============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: 'Hello Mira Dashboards'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true

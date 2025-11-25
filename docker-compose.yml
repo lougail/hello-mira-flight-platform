@@ -252,6 +252,116 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ==========================================================================
+  # Prometheus - Collecte de métriques
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    container_name: hello-mira-prometheus
+    restart: unless-stopped
+
+    # Dépendances (attend que les services soient lancés)
+    depends_on:
+      - airport
+      - flight
+      - assistant
+
+    # Configuration Prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+    # Arguments de lancement
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=15d'
+
+    # Ports exposés
+    ports:
+      - "9090:9090"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Réseau dédié
+    networks:
+      - hello-mira-network
+
+    # Logging limité
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================================================
+  # Grafana - Visualisation des métriques
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: hello-mira-grafana
+    restart: unless-stopped
+
+    # Dépendances
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+    # Configuration Grafana
+    environment:
+      # Admin credentials
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+
+      # Anonymous access (utile pour démo)
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+
+      # Server settings
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      GF_SERVER_SERVE_FROM_SUB_PATH: "false"
+
+      # Datasources
+      GF_DATASOURCES_DEFAULT_NAME: Prometheus
+
+    # Volumes pour persistance et provisioning
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    # Ports exposés
+    ports:
+      - "3000:3000"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Réseau dédié
+    networks:
+      - hello-mira-network
+
+    # Logging limité
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 # ============================================================================
 # NETWORKS
 # ============================================================================
@@ -270,6 +380,10 @@ volumes:
     name: hello-mira-mongo-data
   mongo_config:
     name: hello-mira-mongo-config
+  prometheus_data:
+    name: hello-mira-prometheus-data
+  grafana_data:
+    name: hello-mira-grafana-data
 
 # ============================================================================
 # NOTES TECHNIQUES

@@ -17,6 +17,7 @@ import logging
 
 from config.settings import settings
 from models import Airport, Flight
+from monitoring.metrics import api_calls
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +193,10 @@ class AviationstackClient:
                 # Log succès
                 result_count = len(data.get('data', []))
                 logger.info(f"API success: {endpoint} returned {result_count} results")
-                
+
+                # Métrique Prometheus : appel API réussi
+                api_calls.labels(service="airport", endpoint=endpoint, status="success").inc()
+
                 return data
                 
             except httpx.HTTPStatusError as e:
@@ -224,6 +228,8 @@ class AviationstackClient:
                     logger.error(f"Network error after {retry_count} attempts: {e}")
                     
         # Si on arrive ici, toutes les tentatives ont échoué
+        # Métrique Prometheus : appel API échoué
+        api_calls.labels(service="airport", endpoint=endpoint, status="error").inc()
         raise AviationstackError(f"Échec après {retry_count} tentatives : {last_error}")
     
     async def get_airport_by_iata(self, iata_code: str) -> Optional[Airport]:

@@ -16,6 +16,8 @@ import logging
 from typing import Optional
 from datetime import datetime, timedelta
 
+from monitoring.metrics import cache_hits, cache_misses, cache_expired
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,16 +31,20 @@ class CacheService:
         await cache.set("airport:CDG", {"name": "Charles de Gaulle"})
     """
     
-    def __init__(self, collection, ttl: int = 300):
+    def __init__(self, collection, ttl: int = 300, service_name: str = "flight", cache_type: str = "default"):
         """
         Initialise le service de cache.
-        
+
         Args:
             collection: Collection MongoDB (PyMongo AsyncMongoClient collection)
             ttl: Time To Live en secondes (défaut: 5 minutes)
+            service_name: Nom du service pour les métriques (airport, flight, assistant)
+            cache_type: Type de cache pour les métriques (airports, flights, etc.)
         """
         self.collection = collection
         self.ttl = ttl
+        self.service_name = service_name
+        self.cache_type = cache_type
         
     async def get(self, key: str) -> Optional[dict]:
         """
@@ -62,20 +68,23 @@ class CacheService:
             
         try:
             cached = await self.collection.find_one({"_id": key})
-            
+
             if not cached:
                 logger.debug(f"Cache miss: {key}")
+                cache_misses.labels(service=self.service_name, cache_type=self.cache_type).inc()
                 return None
-            
+
             # Vérifie l'expiration
             expires_at = cached.get("expires_at")
             if expires_at and expires_at < datetime.utcnow():
                 logger.debug(f"Cache expired: {key}")
+                cache_expired.labels(service=self.service_name, cache_type=self.cache_type).inc()
                 # Nettoie l'entrée expirée
                 await self.collection.delete_one({"_id": key})
                 return None
-            
+
             logger.debug(f"Cache hit: {key}")
+            cache_hits.labels(service=self.service_name, cache_type=self.cache_type).inc()
             return cached.get("data")
             
         except Exception as e:
