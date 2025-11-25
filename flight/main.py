@@ -130,7 +130,9 @@ async def lifespan(app: FastAPI):
 
     cache_service = CacheService(
         collection=cache_collection,
-        ttl=settings.cache_ttl
+        ttl=settings.cache_ttl,
+        service_name="flight",
+        cache_type="flights"
     ) if cache_collection is not None else None
 
     flight_service = FlightService(

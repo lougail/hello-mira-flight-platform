@@ -120,7 +120,9 @@ async def lifespan(app: FastAPI):
     
     cache_service = CacheService(
         collection=cache_collection,
-        ttl=settings.cache_ttl
+        ttl=settings.cache_ttl,
+        service_name="airport",
+        cache_type="airports"
     ) if cache_collection is not None else None
     
     geocoding_service = GeocodingService()
