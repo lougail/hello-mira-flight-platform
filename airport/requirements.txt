@@ -29,6 +29,12 @@ pymongo==4.15.4               # 11 nov 2025 - Driver MongoDB avec API async nati
                               # Remplace Motor (deprecated mai 2025)
 
 # ============================================================================
+# MONITORING & METRICS
+# ============================================================================
+prometheus-client==0.21.0              # Nov 2024 - Client officiel Prometheus pour métriques
+prometheus-fastapi-instrumentator==7.0.0  # Nov 2024 - Instrumentation FastAPI pour Prometheus
+
+# ============================================================================
 # DÉVELOPPEMENT & TESTS
 # ============================================================================
 pytest==9.0.1                 # 12 nov 2025 - Framework de tests Python
