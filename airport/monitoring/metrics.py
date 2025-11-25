@@ -42,6 +42,12 @@ api_calls = Counter(
     ['service', 'endpoint', 'status']
 )
 
+coalesced_requests = Counter(
+    'coalesced_requests_total',
+    'Nombre total de requêtes coalescées (requêtes identiques fusionnées)',
+    ['service', 'endpoint']
+)
+
 # ============================================================================
 # QUERIES PROMQL UTILES (pour documentation)
 # ============================================================================
@@ -61,4 +67,8 @@ Exemples de queries Prometheus pour exploiter ces métriques :
 
 4. Taux de clés expirées :
    rate(cache_expired_total{service="airport"}[5m])
+
+5. Taux de coalescing (% de requêtes fusionnées) :
+   sum(rate(coalesced_requests_total{service="airport"}[5m])) /
+   (sum(rate(coalesced_requests_total{service="airport"}[5m])) + sum(rate(aviationstack_api_calls_total{service="airport"}[5m]))) * 100
 """

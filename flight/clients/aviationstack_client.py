@@ -7,6 +7,7 @@ Responsabilités :
 - Conversion des réponses en modèles domaine
 - Logging des appels (sans exposer les secrets)
 - Rate limiting pour respecter les quotas API
+- Request coalescing pour éviter les appels dupliqués
 """
 
 import httpx
@@ -18,6 +19,7 @@ import logging
 from config.settings import settings
 from models import Airport, Flight
 from monitoring.metrics import api_calls
+from clients.request_coalescer import RequestCoalescer
 
 logger = logging.getLogger(__name__)
 
@@ -85,20 +87,24 @@ class AviationstackClient:
             airport = await client.get_airport_by_iata("CDG")
     """
     
-    def __init__(self, enable_rate_limit: bool = True):
+    def __init__(self, enable_rate_limit: bool = True, enable_coalescing: bool = True):
         """
         Initialise le client avec les settings.
-        
+
         Args:
             enable_rate_limit: Active/désactive le rate limiting (utile pour tests)
+            enable_coalescing: Active/désactive le coalescing (utile pour tests)
         """
         self.api_key = settings.aviationstack_api_key
         self.base_url = settings.aviationstack_base_url
         self.timeout = settings.aviationstack_timeout
-        
+
         # Rate limiter (100 calls/mois pour l'API gratuite)
         self.rate_limiter = RateLimiter() if enable_rate_limit else None
-        
+
+        # Request coalescer (évite les appels dupliqués)
+        self.coalescer = RequestCoalescer(service_name="flight") if enable_coalescing else None
+
         # Client HTTP réutilisable avec pool de connexions
         self.client = httpx.AsyncClient(
             timeout=httpx.Timeout(self.timeout),
@@ -107,7 +113,7 @@ class AviationstackClient:
                 max_connections=10
             ),
             headers={
-                "User-Agent": f"HelloMira-Airport-Service/{settings.app_version}"
+                "User-Agent": f"HelloMira-Flight-Service/{settings.app_version}"
             }
         )
         
@@ -126,24 +132,67 @@ class AviationstackClient:
         await self.client.aclose()
         
     async def _make_request(
-        self, 
-        endpoint: str, 
+        self,
+        endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         retry_count: int = 3
     ) -> Dict[str, Any]:
         """
-        Fait une requête à l'API avec retry automatique.
-        
+        Fait une requête à l'API avec retry automatique et coalescing.
+
         Args:
             endpoint: Endpoint de l'API (ex: "airports", "flights")
             params: Paramètres de la requête
             retry_count: Nombre de tentatives
-            
+
         Returns:
             Dict avec la réponse JSON
-            
+
         Raises:
             AviationstackError: Si l'API retourne une erreur ou limite atteinte
+        """
+        # Si coalescing activé, génère une clé et utilise le coalescer
+        if self.coalescer:
+            # Crée une clé unique basée sur endpoint + params (sans access_key)
+            params_for_key = params.copy() if params else {}
+            params_for_key.pop("access_key", None)  # Retire access_key pour la clé
+
+            # Génère clé : "flights:flight_iata=AF123" ou "flights:dep_iata=CDG"
+            params_str = "&".join(f"{k}={v}" for k, v in sorted(params_for_key.items()))
+            cache_key = f"{endpoint}:{params_str}" if params_str else endpoint
+
+            # Utilise le coalescer pour mutualiser les requêtes identiques
+            return await self.coalescer.execute(
+                cache_key,  # key
+                self._execute_request,  # func
+                endpoint,  # Argument 1 pour _execute_request
+                params,    # Argument 2 pour _execute_request
+                retry_count,  # Argument 3 pour _execute_request
+                endpoint=endpoint  # Pour les métriques Prometheus du coalescer
+            )
+        else:
+            # Sans coalescing, exécute directement
+            return await self._execute_request(endpoint, params, retry_count)
+
+    async def _execute_request(
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]],
+        retry_count: int
+    ) -> Dict[str, Any]:
+        """
+        Exécute réellement la requête HTTP (appelé par _make_request avec ou sans coalescing).
+
+        Args:
+            endpoint: Endpoint de l'API
+            params: Paramètres de la requête
+            retry_count: Nombre de tentatives
+
+        Returns:
+            Dict avec la réponse JSON
+
+        Raises:
+            AviationstackError: Si l'API retourne une erreur
         """
         # Vérifie le rate limit
         if self.rate_limiter:

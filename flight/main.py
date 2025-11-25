@@ -28,7 +28,7 @@ from config.settings import settings
 from clients.aviationstack_client import AviationstackClient
 from services import CacheService, FlightService
 from api.routes import flights
-from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
 # ============================================================================
 # CONFIGURATION DU LOGGING
@@ -239,10 +239,23 @@ app = FastAPI(
 # PROMETHEUS METRICS
 # ============================================================================
 
-# Configure Prometheus Instrumentator
-Instrumentator().instrument(app).expose(app)
+# Configure Prometheus Instrumentator avec buckets granulaires
+# Buckets : 5ms, 10ms, 25ms, 50ms, 75ms, 100ms, 250ms, 500ms, 750ms, 1s, 2.5s, 5s, 7.5s, 10s
+instrumentator = Instrumentator(
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=["/metrics", "/docs", "/redoc", "/openapi.json"]
+)
 
-logger.info("✅ Prometheus metrics enabled on /metrics")
+# Ajoute la métrique de latence avec buckets personnalisés
+instrumentator.add(
+    metrics.latency(
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0)
+    )
+)
+
+instrumentator.instrument(app).expose(app, include_in_schema=False)
+
+logger.info("✅ Prometheus metrics enabled on /metrics with granular buckets")
 
 
 # ============================================================================
