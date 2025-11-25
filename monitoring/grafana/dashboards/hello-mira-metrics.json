@@ -214,7 +214,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(http_requests_total{job=\"airport\"}[1m])",
+          "expr": "sum(rate(http_request_duration_seconds_count{job=\"airport\"}[1m]))",
           "legendFormat": "Airport",
           "refId": "A"
         },
@@ -223,7 +223,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(http_requests_total{job=\"flight\"}[1m])",
+          "expr": "sum(rate(http_request_duration_seconds_count{job=\"flight\"}[1m]))",
           "legendFormat": "Flight",
           "refId": "B"
         }
