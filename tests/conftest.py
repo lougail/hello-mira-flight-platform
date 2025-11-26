@@ -5,33 +5,17 @@ Fixtures partagées entre microservices pour tests cross-services (e2e).
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from httpx import AsyncClient
 from typing import Dict, AsyncGenerator
 
 
 # ============================================================================
-# FIXTURES EVENT LOOP
-# ============================================================================
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """
-    Event loop pour les tests async cross-services.
-
-    Scope session pour réutiliser le même loop dans tous les tests e2e.
-    """
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    yield loop
-    loop.close()
-
-
-# ============================================================================
 # FIXTURES CLIENTS HTTP MULTI-SERVICES
 # ============================================================================
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def airport_client() -> AsyncGenerator[AsyncClient, None]:
     """
     Client HTTP async pour le service Airport.
@@ -43,7 +27,7 @@ async def airport_client() -> AsyncGenerator[AsyncClient, None]:
         yield client
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def flight_client() -> AsyncGenerator[AsyncClient, None]:
     """
     Client HTTP async pour le service Flight.
@@ -55,7 +39,7 @@ async def flight_client() -> AsyncGenerator[AsyncClient, None]:
         yield client
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def assistant_client() -> AsyncGenerator[AsyncClient, None]:
     """
     Client HTTP async pour le service Assistant.
@@ -67,7 +51,7 @@ async def assistant_client() -> AsyncGenerator[AsyncClient, None]:
         yield client
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def all_services() -> AsyncGenerator[Dict[str, AsyncClient], None]:
     """
     Tous les clients HTTP pour tests e2e complets.
@@ -89,18 +73,21 @@ async def all_services() -> AsyncGenerator[Dict[str, AsyncClient], None]:
 # FIXTURES VÉRIFICATION SERVICES
 # ============================================================================
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="module")
 async def check_services_running():
     """
     Vérifie que tous les services sont démarrés avant les tests e2e.
+
+    Note: Module scope au lieu de session pour éviter les problèmes
+    d'event loop sur Windows (ProactorEventLoop closed issues).
 
     Raises:
         RuntimeError: Si un service n'est pas accessible
     """
     services = {
-        "airport": "http://localhost:8001/api/v1/health/liveness",
-        "flight": "http://localhost:8002/api/v1/health/liveness",
-        "assistant": "http://localhost:8003/health"
+        "airport": "http://localhost:8001/api/v1/health",
+        "flight": "http://localhost:8002/api/v1/health",
+        "assistant": "http://localhost:8003/api/v1/health"
     }
 
     async with AsyncClient(timeout=5.0) as client:

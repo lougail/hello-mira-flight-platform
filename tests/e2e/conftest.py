@@ -6,6 +6,7 @@ Les fixtures globales sont dans ../conftest.py
 """
 
 import pytest
+import pytest_asyncio
 from typing import Dict, Any
 
 
@@ -13,13 +14,16 @@ from typing import Dict, Any
 # FIXTURES AUTO-USE (exécutées automatiquement)
 # ============================================================================
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="module", autouse=True)
 async def verify_services_before_e2e(check_services_running):
     """
     Vérifie automatiquement que tous les services sont running avant les tests e2e.
 
     Cette fixture est exécutée automatiquement (autouse=True) avant tous
     les tests e2e pour éviter les échecs si docker-compose n'est pas démarré.
+
+    Note: Module scope au lieu de session pour compatibilité avec
+    asyncio_default_fixture_loop_scope=function sur Windows.
     """
     # check_services_running est appelé, lèvera une exception si services down
     pass
