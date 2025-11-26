@@ -15,11 +15,11 @@ class TestAirportServiceE2E:
 
     async def test_health_check(self, airport_client: AsyncClient):
         """Vérifie que le service Airport répond au healthcheck."""
-        response = await airport_client.get("/api/v1/health/liveness")
+        response = await airport_client.get("/api/v1/health")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "healthy"
+        assert data["status"] == "ok"
         assert "service" in data
 
     async def test_get_airport_by_iata(self, airport_client: AsyncClient):
@@ -60,21 +60,21 @@ class TestAirportServiceE2E:
         """
         # Coordonnées de Paris (devrait trouver CDG ou ORY)
         response = await airport_client.get(
-            "/api/v1/airports/search/nearby",
-            params={"latitude": 48.8566, "longitude": 2.3522}
+            "/api/v1/airports/nearest-by-coords",
+            params={"latitude": 48.8566, "longitude": 2.3522, "country_code": "FR"}
         )
 
         assert response.status_code == 200
         data = response.json()
 
-        # Vérifie qu'on trouve au moins un aéroport
-        assert "airports" in data
-        assert len(data["airports"]) > 0
+        # Vérifie la structure de la réponse (endpoint retourne un seul aéroport)
+        assert "iata_code" in data
+        assert "name" in data
+        assert "country" in data
+        assert "coordinates" in data
 
-        # Vérifie structure du premier résultat
-        first_airport = data["airports"][0]
-        assert "iata_code" in first_airport
-        assert "distance_km" in first_airport
+        # Vérifie qu'on trouve CDG ou ORY (aéroports parisiens)
+        assert data["iata_code"] in ["CDG", "ORY"]
 
     async def test_cache_behavior(self, airport_client: AsyncClient):
         """

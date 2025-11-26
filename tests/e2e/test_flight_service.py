@@ -15,7 +15,7 @@ class TestFlightServiceE2E:
 
     async def test_health_check(self, flight_client: AsyncClient):
         """Vérifie que le service Flight répond au healthcheck."""
-        response = await flight_client.get("/api/v1/health/liveness")
+        response = await flight_client.get("/api/v1/health")
 
         assert response.status_code == 200
         data = response.json()
