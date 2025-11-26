@@ -20,7 +20,7 @@ NC='\033[0m'
 
 # Nettoyer le cache avant le test
 echo -e "${YELLOW}🧹 Nettoyage du cache MongoDB...${NC}"
-docker exec hello-mira-mongodb mongosh --quiet --eval "
+docker exec hello-mira-mongo mongosh --quiet --eval "
   use hello_mira;
   db.airport_cache.deleteMany({});
   db.flight_cache.deleteMany({});

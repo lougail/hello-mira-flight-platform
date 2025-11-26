@@ -305,7 +305,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * sum(increase(cache_hits_total{service=\"airport\"}[5m])) / (sum(increase(cache_hits_total{service=\"airport\"}[5m])) + sum(increase(cache_misses_total{service=\"airport\"}[5m])) + 1e-10)",
+          "expr": "100 * sum(cache_hits_total{service=\"airport\"}) / (sum(cache_hits_total{service=\"airport\"}) + sum(cache_misses_total{service=\"airport\"}) + 1e-10)",
           "legendFormat": "Airport Cache Hit Rate",
           "refId": "A"
         }
@@ -374,7 +374,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * sum(increase(cache_hits_total{service=\"flight\"}[5m])) / (sum(increase(cache_hits_total{service=\"flight\"}[5m])) + sum(increase(cache_misses_total{service=\"flight\"}[5m])) + 1e-10)",
+          "expr": "100 * sum(cache_hits_total{service=\"flight\"}) / (sum(cache_hits_total{service=\"flight\"}) + sum(cache_misses_total{service=\"flight\"}) + 1e-10)",
           "legendFormat": "Flight Cache Hit Rate",
           "refId": "A"
         }
