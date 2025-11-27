@@ -296,8 +296,17 @@
             "uid": "prometheus"
           },
           "expr": "rate(aviationstack_api_calls_total[5m]) * 60",
-          "legendFormat": "API Calls/min",
+          "legendFormat": "{{service}} - {{endpoint}}",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(aviationstack_api_calls_total[5m])) * 60",
+          "legendFormat": "TOTAL",
+          "refId": "B"
         }
       ],
       "title": "📡 API Calls (5m)",
@@ -661,7 +670,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
           "mappings": [],
           "thresholds": {
@@ -670,14 +679,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 20
-              },
-              {
-                "color": "red",
-                "value": 50
               }
             ]
           },
@@ -732,6 +733,7 @@
             "mode": "palette-classic"
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -951,7 +953,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job=~\"airport|flight\"}[5m]))) * 1000",
+          "expr": "histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job=~\"airport|flight|assistant\"}[5m]))) * 1000",
           "legendFormat": "{{job}} - p50 (typique)",
           "refId": "A"
         },
@@ -960,7 +962,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket{job=~\"airport|flight\"}[5m]))) * 1000",
+          "expr": "histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket{job=~\"airport|flight|assistant\"}[5m]))) * 1000",
           "legendFormat": "{{job}} - p95 (cas lents)",
           "refId": "B"
         }
@@ -1063,6 +1065,15 @@
           "expr": "sum(rate(http_request_duration_seconds_count{job=\"flight\"}[1m]))",
           "legendFormat": "Flight",
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(http_request_duration_seconds_count{job=\"assistant\"}[1m]))",
+          "legendFormat": "Assistant IA",
+          "refId": "C"
         }
       ],
       "title": "📈 Requêtes HTTP par seconde",
@@ -1075,6 +1086,280 @@
         "w": 24,
         "x": 0,
         "y": 34
+      },
+      "id": 103,
+      "panels": [],
+      "title": "🤖 ASSISTANT IA CONVERSATIONNEL",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Taux de succès des requêtes à l'Assistant IA.\n\n✅ 200 = Succès\n⚠️ 4xx = Erreur client\n🔴 5xx = Erreur serveur",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "200 OK"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "4xx Client Error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx Server Error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 35
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(http_request_duration_seconds_count{job=\"assistant\",status=\"2xx\"})",
+          "legendFormat": "200 OK",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(http_request_duration_seconds_count{job=\"assistant\",status=\"4xx\"})",
+          "legendFormat": "4xx Client Error",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(http_request_duration_seconds_count{job=\"assistant\",status=\"5xx\"})",
+          "legendFormat": "5xx Server Error",
+          "refId": "C"
+        }
+      ],
+      "title": "✅ Taux de Succès Assistant IA",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Latence médiane (p50) de l'Assistant IA.\n\nInclut le temps de traitement Mistral AI + appels microservices.\n\n✅ < 2000ms = Excellent\n⚠️ < 5000ms = Acceptable\n🔴 > 5000ms = Lent",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 5000,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2000
+              },
+              {
+                "color": "red",
+                "value": 4000
+              }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 35
+      },
+      "id": 10,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"assistant\"}[5m]))) * 1000",
+          "legendFormat": "Assistant p50 (5m)",
+          "refId": "A"
+        }
+      ],
+      "title": "⚡ Latence Assistant p50 (5m)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Nombre total de requêtes traitées par l'Assistant IA depuis le démarrage.\n\nInclut /interpret et /answer.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "blue",
+                "value": 100
+              },
+              {
+                "color": "purple",
+                "value": 500
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 35
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(http_request_duration_seconds_count{job=\"assistant\"})",
+          "legendFormat": "Total Requêtes",
+          "refId": "A"
+        }
+      ],
+      "title": "🤖 Total Requêtes Assistant IA",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 43
       },
       "id": 102,
       "panels": [],
@@ -1118,7 +1403,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 35
+        "y": 44
       },
       "id": 6,
       "options": {
@@ -1209,7 +1494,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 35
+        "y": 44
       },
       "id": 7,
       "options": {
@@ -1268,7 +1553,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 35
+        "y": 44
       },
       "id": 8,
       "options": {
