@@ -7,7 +7,7 @@ Fixtures réutilisables pour tous les tests du microservice airport.
 import pytest
 import asyncio
 from httpx import AsyncClient, ASGITransport
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 # Import de l'app FastAPI
 import sys
@@ -67,9 +67,9 @@ async def mongo_client():
 
     Scope session pour connexion unique durant tous les tests.
     """
-    client = AsyncIOMotorClient(settings.mongodb_url)
+    client = AsyncMongoClient(settings.mongodb_url)
     yield client
-    client.close()
+    await client.close()
 
 
 @pytest.fixture
