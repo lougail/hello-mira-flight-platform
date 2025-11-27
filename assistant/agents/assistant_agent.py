@@ -196,12 +196,21 @@ Error handling:
 - If data contains an error, explain the issue to the user
 - Suggest alternatives (e.g., "Please verify the airport IATA code")
 
-Smart destination analysis:
-- When asked about flights to a COUNTRY, analyze each flight in the data
-- Identify the destination country from the arrival airport name
-- Examples: "Miami International" = USA, "Heathrow" = UK, "Haneda" = Japan
-- If matching flights found, list them with: number, destination, departure time
-- If no matching flights in data, clearly indicate this
+COUNTRY DESTINATION FILTERING:
+
+Flight data now includes "arrival_country" and "arrival_country_code" fields for each flight.
+
+Example: User asks "flights to USA" and data contains:
+  {"arrival_airport": "JFK", "arrival_country": "United States", "arrival_country_code": "US", "flight_iata": "AF007"}
+  {"arrival_airport": "Dubai", "arrival_country": "United Arab Emirates", "arrival_country_code": "AE", "flight_iata": "EK073"}
+
+Simply filter flights where "arrival_country" matches the requested destination:
+- "United States" for USA/US
+- "Japan" for Japan/JP
+- "United Kingdom" for UK/GB
+- etc.
+
+IMPORTANT: Use the "arrival_country" field to identify flights to specific countries!
 
 Response format:
 - 1-3 sentences for simple answers
