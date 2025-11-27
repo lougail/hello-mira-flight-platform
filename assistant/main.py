@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
 from config import settings
 from api.routes import assistant_router
@@ -114,6 +115,28 @@ async def health_check():
 
 # Assistant routes
 app.include_router(assistant_router, prefix="/api/v1")
+
+# =============================================================================
+# PROMETHEUS METRICS
+# =============================================================================
+
+# Configure Prometheus Instrumentator avec buckets granulaires
+# Buckets : 5ms, 10ms, 25ms, 50ms, 75ms, 100ms, 250ms, 500ms, 750ms, 1s, 2.5s, 5s, 7.5s, 10s
+instrumentator = Instrumentator(
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=["/metrics", "/docs", "/redoc", "/openapi.json"]
+)
+
+# Ajoute la métrique de latence avec buckets personnalisés
+instrumentator.add(
+    metrics.latency(
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0)
+    )
+)
+
+instrumentator.instrument(app).expose(app, include_in_schema=False)
+
+logger.info("✅ Prometheus metrics enabled on /metrics with granular buckets")
 
 # =============================================================================
 # ENTRY POINT

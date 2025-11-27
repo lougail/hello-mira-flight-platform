@@ -58,10 +58,10 @@ class AirportClient:
             params: Paramètres de query string
 
         Returns:
-            Réponse JSON parsée
+            Réponse JSON parsée, ou dict avec "error" si 404
 
         Raises:
-            httpx.HTTPError: Erreur HTTP
+            httpx.HTTPError: Erreur HTTP (sauf 404)
         """
         url = f"{self.base_url}{endpoint}"
         logger.info(f"Airport API call: GET {url} with params {params}")
@@ -70,6 +70,13 @@ class AirportClient:
             self._client = httpx.AsyncClient(timeout=self.timeout)
 
         response = await self._client.get(url, params=params)
+
+        # Gestion gracieuse des 404 pour LangGraph 1.0 compatibility
+        # L'assistant doit pouvoir dire "ressource non trouvée" au lieu de crasher
+        if response.status_code == 404:
+            logger.warning(f"Airport API returned 404 for {endpoint}")
+            return {"error": f"Resource not found: {endpoint}"}
+
         response.raise_for_status()
         return response.json()
 
