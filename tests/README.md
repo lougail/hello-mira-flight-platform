@@ -17,12 +17,12 @@ hello-mira-flight-platform/
 │   ├── integration/                    # Tests endpoints API
 │   │   ├── conftest.py                 # Fixtures spécifiques integration
 │   │   └── test_*_endpoints.py
-│   ├── fixtures/                       # ⭐ NOUVEAU 2025: Fixtures complexes
+│   ├── fixtures/                       # Fixtures complexes
 │   │   └── __init__.py
-│   ├── mocks/                          # ⭐ NOUVEAU 2025: Mock data
+│   ├── mocks/                          # Mock data
 │   │   ├── airport_response_sample.json
 │   │   └── flight_response_sample.json
-│   └── exploration/                    # ⭐ Scripts démarche empirique
+│   └── exploration/                    # Scripts démarche empirique
 │       ├── README.md                   # Documentation approche
 │       └── explore_*.py                # Scripts (pas test_*)
 │
@@ -43,13 +43,13 @@ hello-mira-flight-platform/
 │   └── (même structure)
 │
 └── tests/                              # Tests cross-services
-    ├── conftest.py                     # ⭐ Fixtures cross-services
+    ├── conftest.py                     # Fixtures cross-services
     ├── performance/                    # Tests de performance
     │   ├── test_cache_isolated.sh
     │   ├── test_coalescing_isolated.sh
     │   ├── test_coalescing.sh
     │   └── test_cache_and_coalescing.sh
-    └── e2e/                            # ⭐ Tests end-to-end
+    └── e2e/                            # Tests end-to-end
         ├── conftest.py                 # Scénarios e2e
         └── test_*.py
 ```
