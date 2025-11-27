@@ -11,23 +11,25 @@
 # ============================================================================
 
 # FastAPI et serveur ASGI
-fastapi==0.121.2
-uvicorn[standard]==0.34.0
+fastapi==0.122.0               # 24 nov 2025 - Mise à jour sécurité
+uvicorn[standard]==0.38.0      # 18 oct 2025 - Harmonisation avec Airport/Flight
 
 # Validation et configuration
 pydantic==2.12.4
 pydantic-settings==2.12.0
 
 # Client HTTP async
-httpx==0.27.0
+httpx==0.28.1                  # 6 déc 2024 - Harmonisation avec Airport/Flight
 
-# LangGraph et LangChain Core (2025 standard pour orchestration multi-agent)
-langgraph==0.2.45
-langchain-core==0.3.21
-langchain-mistralai==0.2.2
+# LangGraph et LangChain Core (v1.0 - production ready)
+langgraph==1.0.3               # 10 nov 2025 - MAJOR: v1.0 stable release
+langchain-core==1.1.0          # Nov 2025 - MAJOR: v1.0+ stable
+langchain-mistralai==1.1.0     # 24 nov 2025 - MAJOR: v1.0+ compatible
 
 # Utilitaires
 python-dotenv==1.0.0
 
 # Logging et monitoring
 python-json-logger==3.2.1
+prometheus-client==0.21.0              # Nov 2024 - Client officiel Prometheus pour métriques
+prometheus-fastapi-instrumentator==7.1.0  # Nov 2025 - Instrumentation FastAPI pour Prometheus

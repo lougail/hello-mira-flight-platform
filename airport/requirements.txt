@@ -1,13 +1,13 @@
 # ============================================================================
 # REQUIREMENTS.TXT - Hello Mira Flight Platform
-# Dernière vérification : 14 novembre 2025
+# Dernière vérification : 26 novembre 2025
 # Stack : FastAPI + PyMongo Async + httpx
 # ============================================================================
 
 # ============================================================================
 # CORE - FastAPI et Serveur ASGI
 # ============================================================================
-fastapi==0.121.2              # 13 nov 2025 - Framework web moderne avec validation auto
+fastapi==0.122.0              # 24 nov 2025 - Framework web moderne avec validation auto
 uvicorn[standard]==0.38.0     # 18 oct 2025 - Serveur ASGI performant avec uvloop
 
 # ============================================================================
@@ -32,7 +32,7 @@ pymongo==4.15.4               # 11 nov 2025 - Driver MongoDB avec API async nati
 # MONITORING & METRICS
 # ============================================================================
 prometheus-client==0.21.0              # Nov 2024 - Client officiel Prometheus pour métriques
-prometheus-fastapi-instrumentator==7.0.0  # Nov 2024 - Instrumentation FastAPI pour Prometheus
+prometheus-fastapi-instrumentator==7.1.0  # Nov 2025 - Instrumentation FastAPI pour Prometheus
 
 # ============================================================================
 # DÉVELOPPEMENT & TESTS
