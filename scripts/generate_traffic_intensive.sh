@@ -1,28 +1,80 @@
 #!/bin/bash
-# Script de génération de trafic INTENSIF pour obtenir des métriques fiables
+# ============================================================================
+# Script de génération de trafic pour Hello Mira Flight Platform
+# ============================================================================
 # Usage: ./scripts/generate_traffic_intensive.sh [iterations]
 # Default: 50 iterations = ~300 requêtes
+#
+# Architecture testée :
+#   - Gateway (8004) : Cache, coalescing, appels API Aviationstack
+#   - Airport (8001) : Recherche aéroports, geocoding, départs/arrivées
+#   - Flight (8002)  : Statut vols, historique, statistiques
+#   - Assistant (8003) : LLM, intentions, tools
+#
+# ============================================================================
 
 ITERATIONS=${1:-50}
 
-echo "🚀 Génération de trafic INTENSIF"
+echo "🚀 Génération de trafic - Hello Mira Flight Platform"
 echo "=================================================="
-echo "📊 Iterations: $ITERATIONS (~$(($ITERATIONS * 6)) requêtes)"
+echo "📊 Iterations: $ITERATIONS (~$(($ITERATIONS * 8)) requêtes)"
 echo ""
 
 # Couleurs
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
 # Compteurs
 total_requests=0
+gateway_requests=0
 airport_requests=0
 flight_requests=0
 assistant_requests=0
 
+# Ports des services
+GATEWAY_PORT=8004
+AIRPORT_PORT=8001
+FLIGHT_PORT=8002
+ASSISTANT_PORT=8003
+
 echo -e "${YELLOW}🔥 Démarrage du test de charge...${NC}"
+echo ""
+
+# ============================================================================
+# VÉRIFICATION DES SERVICES
+# ============================================================================
+echo -e "${BLUE}[Check]${NC} Vérification des services..."
+
+check_service() {
+    local name=$1
+    local port=$2
+    local endpoint=$3
+
+    if curl -s --connect-timeout 2 "http://localhost:$port$endpoint" > /dev/null 2>&1; then
+        echo -e "  ${GREEN}✓${NC} $name (port $port)"
+        return 0
+    else
+        echo -e "  ${RED}✗${NC} $name (port $port) - NON DISPONIBLE"
+        return 1
+    fi
+}
+
+services_ok=true
+check_service "Gateway" $GATEWAY_PORT "/health" || services_ok=false
+check_service "Airport" $AIRPORT_PORT "/api/v1/health" || services_ok=false
+check_service "Flight" $FLIGHT_PORT "/api/v1/health" || services_ok=false
+check_service "Assistant" $ASSISTANT_PORT "/api/v1/health" || services_ok=false
+
+if [ "$services_ok" = false ]; then
+    echo ""
+    echo -e "${RED}❌ Certains services ne sont pas disponibles.${NC}"
+    echo "   Lancez : docker-compose up -d"
+    exit 1
+fi
+
 echo ""
 
 # ============================================================================
@@ -30,52 +82,45 @@ echo ""
 # ============================================================================
 echo -e "${BLUE}[Init]${NC} Récupération des vols réels depuis l'API..."
 
-# Récupère PLUS de vols pour avoir assez d'aéroports à séparer (traffic + coalescing)
-DEPARTURES_DATA=$(curl -s "http://localhost:8001/api/v1/airports/CDG/departures?limit=50")
+# Récupère les vols pour avoir des données réalistes
+DEPARTURES_DATA=$(curl -s "http://localhost:$AIRPORT_PORT/api/v1/airports/CDG/departures?limit=50")
 
 # Extrait les flight_iata
 REAL_FLIGHTS=$(echo "$DEPARTURES_DATA" | \
     python -c "import sys, json; data = json.load(sys.stdin); print(' '.join([f['flight_iata'] for f in data.get('flights', [])[:10] if f.get('flight_iata')]))" 2>/dev/null)
 
-# Extrait et SÉPARE les aéroports dès le début selon leur usage
-# - Aéroports 1-10 : Trafic normal (boucle principale)
-# - Aéroport 11 : Test coalescing (jamais utilisé avant → cache MISS garanti)
-# - Réutilisation aéroport 11 : Test cache HIT (en cache après le test coalescing)
+# Extrait les aéroports de destination
 AIRPORTS_SEPARATION=$(echo "$DEPARTURES_DATA" | \
     python -c "
 import sys, json
 data = json.load(sys.stdin)
 
-# Récupère tous les aéroports de destination uniques
 destinations = []
 seen = set()
 for flight in data.get('flights', []):
     arr = flight.get('arrival_iata')
-    if arr and arr != 'CDG' and arr not in seen:  # Exclut CDG et déduplique
+    if arr and arr != 'CDG' and arr not in seen:
         destinations.append(arr)
         seen.add(arr)
 
-# Sépare :
-# - 10 premiers → trafic normal
-# - 11ème → test coalescing (jamais touché avant)
 traffic_airports = destinations[:10]
 coalescing_airport = destinations[10] if len(destinations) > 10 else 'BCN'
 
 print(f\"{' '.join(traffic_airports)}|{coalescing_airport}\")
 " 2>/dev/null)
 
-# Parse le résultat (format : "AMS BKK DXB ...|MAD")
-AIRPORTS_DATA="${AIRPORTS_SEPARATION%|*}"  # Partie avant le |
-COALESCING_AIRPORT="${AIRPORTS_SEPARATION#*|}"  # Partie après le |
+# Parse le résultat
+AIRPORTS_DATA="${AIRPORTS_SEPARATION%|*}"
+COALESCING_AIRPORT="${AIRPORTS_SEPARATION#*|}"
 
-# Fallback : si pas de vols récupérés, utilise des codes génériques
+# Fallback
 if [ -z "$REAL_FLIGHTS" ]; then
-    echo -e "${YELLOW}⚠${NC}  Impossible de récupérer les vols réels, utilisation de codes génériques"
+    echo -e "${YELLOW}⚠${NC}  Utilisation de codes génériques (vols)"
     REAL_FLIGHTS="AF1234 BA5678 LH9012"
 fi
 
 if [ -z "$AIRPORTS_DATA" ]; then
-    echo -e "${YELLOW}⚠${NC}  Impossible de récupérer les aéroports réels, utilisation de codes génériques"
+    echo -e "${YELLOW}⚠${NC}  Utilisation de codes génériques (aéroports)"
     AIRPORTS_DATA="JFK LHR ORY LAX SFO DXB NRT SIN HKG BKK"
     COALESCING_AIRPORT="BCN"
 fi
@@ -84,72 +129,105 @@ fi
 FLIGHTS_ARRAY=($REAL_FLIGHTS)
 AIRPORTS_ARRAY=($AIRPORTS_DATA)
 
-echo -e "${GREEN}✓${NC} ${#FLIGHTS_ARRAY[@]} vols réels récupérés : ${FLIGHTS_ARRAY[@]:0:5}..."
-echo -e "${GREEN}✓${NC} ${#AIRPORTS_ARRAY[@]} aéroports pour trafic normal : ${AIRPORTS_ARRAY[@]:0:5}..."
-echo -e "${GREEN}✓${NC} Aéroport réservé pour coalescing : $COALESCING_AIRPORT (jamais utilisé avant → cache MISS garanti)"
-echo ""
-echo -e "${BLUE}[Strategy]${NC} Séparation des données :"
-echo "  - Aéroports 1-10 : Trafic mixte dans la boucle principale"
-echo "  - Aéroport 11 ($COALESCING_AIRPORT) : Test coalescing (cache MISS) puis test cache (cache HIT)"
+echo -e "${GREEN}✓${NC} ${#FLIGHTS_ARRAY[@]} vols : ${FLIGHTS_ARRAY[@]:0:3}..."
+echo -e "${GREEN}✓${NC} ${#AIRPORTS_ARRAY[@]} aéroports : ${AIRPORTS_ARRAY[@]:0:3}..."
+echo -e "${GREEN}✓${NC} Aéroport coalescing : $COALESCING_AIRPORT"
 echo ""
 
 # ============================================================================
-# FONCTION : GÉNÈRE DU TRAFIC AIRPORT
+# FONCTIONS DE GÉNÉRATION DE TRAFIC
 # ============================================================================
+
+# --- GATEWAY ---
+generate_gateway_traffic() {
+    local AIRPORT=${AIRPORTS_ARRAY[$RANDOM % ${#AIRPORTS_ARRAY[@]}]}
+    local RAND_TYPE=$((RANDOM % 2))
+
+    if [ $RAND_TYPE -eq 0 ]; then
+        # Appel airports
+        curl -s "http://localhost:$GATEWAY_PORT/api/v1/airports?iata=$AIRPORT" > /dev/null 2>&1
+    else
+        # Appel flights
+        local FLIGHT=${FLIGHTS_ARRAY[$RANDOM % ${#FLIGHTS_ARRAY[@]}]}
+        curl -s "http://localhost:$GATEWAY_PORT/api/v1/flights?flight_iata=$FLIGHT" > /dev/null 2>&1
+    fi
+    ((gateway_requests++))
+    ((total_requests++))
+}
+
+# --- AIRPORT ---
 generate_airport_traffic() {
-    # Utilise les aéroports de destination récupérés depuis l'API + CDG
-    # Ajoute CDG dynamiquement car c'est notre point de départ principal
     local TRAFFIC_AIRPORTS=("CDG" "${AIRPORTS_ARRAY[@]}")
+    local AIRPORT=${TRAFFIC_AIRPORTS[$RANDOM % ${#TRAFFIC_AIRPORTS[@]}]}
+    local RAND_TYPE=$((RANDOM % 4))
 
-    # Requête aléatoire
-    AIRPORT=${TRAFFIC_AIRPORTS[$RANDOM % ${#TRAFFIC_AIRPORTS[@]}]}
-    curl -s http://localhost:8001/api/v1/airports/$AIRPORT > /dev/null 2>&1
+    case $RAND_TYPE in
+        0)
+            # Recherche par IATA
+            curl -s "http://localhost:$AIRPORT_PORT/api/v1/airports/$AIRPORT" > /dev/null 2>&1
+            ;;
+        1)
+            # Recherche par nom
+            curl -s "http://localhost:$AIRPORT_PORT/api/v1/airports/search?name=Paris" > /dev/null 2>&1
+            ;;
+        2)
+            # Départs
+            curl -s "http://localhost:$AIRPORT_PORT/api/v1/airports/$AIRPORT/departures?limit=5" > /dev/null 2>&1
+            ;;
+        3)
+            # Aéroport le plus proche (geocoding)
+            curl -s "http://localhost:$AIRPORT_PORT/api/v1/airports/nearest-by-address?address=Paris&country_code=FR" > /dev/null 2>&1
+            ;;
+    esac
     ((airport_requests++))
     ((total_requests++))
 }
 
-# ============================================================================
-# FONCTION : GÉNÈRE DU TRAFIC FLIGHT
-# ============================================================================
+# --- FLIGHT ---
 generate_flight_traffic() {
-    # Utilise les vols réels récupérés depuis l'API
-    FLIGHT=${FLIGHTS_ARRAY[$RANDOM % ${#FLIGHTS_ARRAY[@]}]}
-    curl -s http://localhost:8002/api/v1/flights/$FLIGHT > /dev/null 2>&1
+    local FLIGHT=${FLIGHTS_ARRAY[$RANDOM % ${#FLIGHTS_ARRAY[@]}]}
+    local RAND_TYPE=$((RANDOM % 3))
+
+    case $RAND_TYPE in
+        0)
+            # Statut du vol
+            curl -s "http://localhost:$FLIGHT_PORT/api/v1/flights/$FLIGHT" > /dev/null 2>&1
+            ;;
+        1)
+            # Historique
+            curl -s "http://localhost:$FLIGHT_PORT/api/v1/flights/$FLIGHT/history?days=7" > /dev/null 2>&1
+            ;;
+        2)
+            # Statistiques
+            curl -s "http://localhost:$FLIGHT_PORT/api/v1/flights/$FLIGHT/statistics" > /dev/null 2>&1
+            ;;
+    esac
     ((flight_requests++))
     ((total_requests++))
 }
 
-# ============================================================================
-# FONCTION : GÉNÈRE DU TRAFIC ASSISTANT
-# ============================================================================
+# --- ASSISTANT ---
 generate_assistant_traffic() {
-    # Variété de prompts utilisant les données réelles
-    # Mix d'aéroports et de vols pour tester différentes latences
-    RAND_TYPE=$((RANDOM % 3))
+    local RAND_TYPE=$((RANDOM % 4))
+    local PROMPT=""
 
-    if [ $RAND_TYPE -eq 0 ]; then
-        # Prompts sur les aéroports
-        AIRPORTS_PROMPTS=(
-            "Donne-moi les infos de l'aéroport CDG"
-            "Trouve-moi l'aéroport le plus proche de Paris"
-            "Quels vols partent de JFK ?"
-            "Où se trouve l'aéroport ORY ?"
-        )
-        PROMPT=${AIRPORTS_PROMPTS[$RANDOM % ${#AIRPORTS_PROMPTS[@]}]}
-    else
-        # Prompts sur les vols (utilise les vols réels récupérés)
-        REAL_FLIGHT=${FLIGHTS_ARRAY[$RANDOM % ${#FLIGHTS_ARRAY[@]}]}
-        FLIGHT_PROMPTS=(
-            "Quel est le statut du vol $REAL_FLIGHT ?"
-            "Je suis sur le vol $REAL_FLIGHT, à quelle heure j'arrive ?"
-            "Donne-moi les détails du vol $REAL_FLIGHT"
-        )
-        PROMPT=${FLIGHT_PROMPTS[$RANDOM % ${#FLIGHT_PROMPTS[@]}]}
-    fi
+    case $RAND_TYPE in
+        0)
+            PROMPT="Donne-moi les infos de l'aéroport CDG"
+            ;;
+        1)
+            PROMPT="Trouve-moi l'aéroport le plus proche de Paris"
+            ;;
+        2)
+            local FLIGHT=${FLIGHTS_ARRAY[$RANDOM % ${#FLIGHTS_ARRAY[@]}]}
+            PROMPT="Quel est le statut du vol $FLIGHT ?"
+            ;;
+        3)
+            PROMPT="Quels vols partent de JFK ?"
+            ;;
+    esac
 
-    # Utilise un heredoc pour éviter les problèmes d'échappement avec apostrophes/guillemets
-    # Méthode recommandée (2025) : curl -d @- avec heredoc
-    curl -s -X POST http://localhost:8003/api/v1/assistant/answer \
+    curl -s -X POST "http://localhost:$ASSISTANT_PORT/api/v1/assistant/answer" \
       -H "Content-Type: application/json" \
       -d @- <<EOF > /dev/null 2>&1
 {"prompt": "$PROMPT"}
@@ -161,88 +239,162 @@ EOF
 # ============================================================================
 # BOUCLE PRINCIPALE - TRAFIC MIXTE
 # ============================================================================
+echo -e "${BLUE}[Traffic]${NC} Génération du trafic mixte..."
+
 for i in $(seq 1 $ITERATIONS); do
-    # Affichage progression tous les 10 iterations
+    # Progression tous les 10 iterations
     if [ $((i % 10)) -eq 0 ]; then
-        echo -e "${BLUE}[Progress]${NC} $i/$ITERATIONS iterations (Total: $total_requests requêtes)"
+        echo -e "  ${BLUE}→${NC} $i/$ITERATIONS (Total: $total_requests requêtes)"
     fi
 
-    # Mix aléatoire de requêtes pour simuler du trafic réel
-    # 40% Airport, 30% Flight (vols réels), 30% Assistant
-    RAND=$((RANDOM % 10))
+    # Mix : 20% Gateway, 25% Airport, 25% Flight, 30% Assistant
+    RAND=$((RANDOM % 20))
 
     if [ $RAND -lt 4 ]; then
-        # 40% - Airport
+        generate_gateway_traffic
+    elif [ $RAND -lt 9 ]; then
         generate_airport_traffic
-    elif [ $RAND -lt 7 ]; then
-        # 30% - Flight (utilise vols réels récupérés)
+    elif [ $RAND -lt 14 ]; then
         generate_flight_traffic
     else
-        # 30% - Assistant (utilise vols réels dans prompts)
         generate_assistant_traffic
     fi
 
-    # Petit délai pour éviter de surcharger (10-50ms aléatoire)
+    # Délai aléatoire (10-50ms)
     sleep 0.0$((RANDOM % 5))
 done
 
-# ============================================================================
-# TEST DE COALESCING - Requêtes simultanées
-# ============================================================================
+echo -e "${GREEN}✓${NC} Trafic mixte terminé"
 echo ""
-echo -e "${YELLOW}🔗 Test du coalescing (requêtes simultanées)...${NC}"
 
-# 10 requêtes identiques en parallèle pour tester le coalescing
-# Utilise $COALESCING_AIRPORT qui n'a JAMAIS été touché dans la boucle principale
-# Garantit un cache MISS initial → 1 API call + 9 requêtes coalescées
-echo -e "${BLUE}[Info]${NC} Test avec $COALESCING_AIRPORT (aéroport #11, jamais utilisé avant)"
+# ============================================================================
+# TEST DE COALESCING - Requêtes simultanées vers Gateway
+# ============================================================================
+echo -e "${YELLOW}🔗 Test du coalescing (10 requêtes simultanées)...${NC}"
+
 for i in {1..10}; do
-    curl -s http://localhost:8001/api/v1/airports/$COALESCING_AIRPORT > /dev/null 2>&1 &
+    curl -s "http://localhost:$GATEWAY_PORT/api/v1/airports?iata=$COALESCING_AIRPORT" > /dev/null 2>&1 &
 done
 wait
-((airport_requests+=10))
+((gateway_requests+=10))
 ((total_requests+=10))
 
-echo -e "${GREEN}✓${NC} Coalescing testé (10 requêtes $COALESCING_AIRPORT simultanées → 9 coalescées)"
-
-# ============================================================================
-# TEST DE CACHE HITS - Requêtes répétées
-# ============================================================================
+echo -e "${GREEN}✓${NC} Coalescing testé ($COALESCING_AIRPORT)"
 echo ""
-echo -e "${YELLOW}💾 Test du cache (requêtes répétées)...${NC}"
 
-# Requêtes répétées pour maximiser cache hits
-# $COALESCING_AIRPORT est maintenant EN CACHE (mis en cache par le test de coalescing)
-# Garantit 20 cache HITs consécutifs
-echo -e "${BLUE}[Info]${NC} Réutilise $COALESCING_AIRPORT (maintenant en cache)"
+# ============================================================================
+# TEST DE CACHE - Requêtes répétées
+# ============================================================================
+echo -e "${YELLOW}💾 Test du cache (20 requêtes répétées)...${NC}"
+
 for i in {1..20}; do
-    curl -s http://localhost:8001/api/v1/airports/$COALESCING_AIRPORT > /dev/null 2>&1
+    curl -s "http://localhost:$AIRPORT_PORT/api/v1/airports/$COALESCING_AIRPORT" > /dev/null 2>&1
     ((airport_requests++))
     ((total_requests++))
 done
 
-echo -e "${GREEN}✓${NC} Cache testé (20 requêtes séquentielles, toutes en cache HIT)"
+echo -e "${GREEN}✓${NC} Cache testé"
+echo ""
+
+# ============================================================================
+# TEST DES MÉTRIQUES CUSTOM
+# ============================================================================
+echo -e "${YELLOW}📊 Test des métriques custom...${NC}"
+
+# Flight statistics (déclenche les métriques de ponctualité)
+echo -e "  ${BLUE}→${NC} Flight statistics..."
+for FLIGHT in ${FLIGHTS_ARRAY[@]:0:3}; do
+    curl -s "http://localhost:$FLIGHT_PORT/api/v1/flights/$FLIGHT/statistics" > /dev/null 2>&1
+    ((flight_requests++))
+    ((total_requests++))
+done
+
+# Airport geocoding (déclenche les métriques Nominatim)
+echo -e "  ${BLUE}→${NC} Airport geocoding..."
+curl -s "http://localhost:$AIRPORT_PORT/api/v1/airports/nearest-by-address?address=Paris&country_code=FR" > /dev/null 2>&1
+((airport_requests++)); ((total_requests++))
+curl -s "http://localhost:$AIRPORT_PORT/api/v1/airports/nearest-by-address?address=London&country_code=GB" > /dev/null 2>&1
+((airport_requests++)); ((total_requests++))
+curl -s "http://localhost:$AIRPORT_PORT/api/v1/airports/nearest-by-address?address=New%20York&country_code=US" > /dev/null 2>&1
+((airport_requests++)); ((total_requests++))
+
+# Assistant intents (déclenche les métriques LLM)
+echo -e "  ${BLUE}→${NC} Assistant intents..."
+INTENT_PROMPTS=(
+    "Quel est le statut du vol AF123 ?"
+    "Trouve-moi l'aéroport le plus proche de Lyon"
+    "Quels vols partent de CDG demain ?"
+)
+for PROMPT in "${INTENT_PROMPTS[@]}"; do
+    curl -s -X POST "http://localhost:$ASSISTANT_PORT/api/v1/assistant/answer" \
+      -H "Content-Type: application/json" \
+      -d "{\"prompt\": \"$PROMPT\"}" > /dev/null 2>&1
+    ((assistant_requests++))
+    ((total_requests++))
+done
+
+echo -e "${GREEN}✓${NC} Métriques custom testées"
+echo ""
 
 # ============================================================================
 # RÉSUMÉ
 # ============================================================================
-echo ""
 echo "=================================================="
 echo -e "${GREEN}✅ Trafic généré avec succès !${NC}"
 echo ""
 echo "📊 Statistiques :"
-echo "  - Total requêtes : $total_requests"
-echo "  - Airport : $airport_requests"
-echo "  - Flight : $flight_requests"
-echo "  - Assistant : $assistant_requests"
+echo "  ├── Gateway   : $gateway_requests requêtes"
+echo "  ├── Airport   : $airport_requests requêtes"
+echo "  ├── Flight    : $flight_requests requêtes"
+echo "  ├── Assistant : $assistant_requests requêtes"
+echo "  └── TOTAL     : $total_requests requêtes"
 echo ""
-echo "📈 Prochaines étapes :"
-echo "  1. Attends 15s que Prometheus scrape les données"
-echo "  2. Rafraîchis Grafana : http://localhost:3000"
-echo "  3. Vérifie les panels :"
-echo "     - Latence p50/p95 (devrait montrer de la variabilité)"
-echo "     - Cache Hit Rate (devrait être >70%)"
-echo "     - API Calls économisés via coalescing"
+echo "📈 Vérification des métriques :"
+echo ""
+
+# Attente courte pour que Prometheus scrape
+echo -e "${BLUE}[Wait]${NC} Attente de 5s pour scraping Prometheus..."
+sleep 5
+
+# Vérification des métriques disponibles
+echo -e "${BLUE}[Check]${NC} Métriques disponibles :"
+
+check_metric() {
+    local service=$1
+    local port=$2
+    local metric=$3
+
+    if curl -s "http://localhost:$port/metrics" 2>/dev/null | grep -q "^${metric}"; then
+        echo -e "  ${GREEN}✓${NC} $service: $metric"
+    else
+        echo -e "  ${YELLOW}○${NC} $service: $metric (pas encore de données)"
+    fi
+}
+
+# Gateway metrics
+check_metric "Gateway" $GATEWAY_PORT "gateway_cache_hits_total"
+check_metric "Gateway" $GATEWAY_PORT "gateway_coalesced_requests_total"
+check_metric "Gateway" $GATEWAY_PORT "gateway_api_calls_total"
+
+# Airport metrics
+check_metric "Airport" $AIRPORT_PORT "airport_lookups_total"
+check_metric "Airport" $AIRPORT_PORT "airport_geocoding_calls_total"
+check_metric "Airport" $AIRPORT_PORT "airport_flight_queries_total"
+
+# Flight metrics
+check_metric "Flight" $FLIGHT_PORT "flight_lookups_total"
+check_metric "Flight" $FLIGHT_PORT "flight_mongodb_operations_total"
+check_metric "Flight" $FLIGHT_PORT "flight_statistics_calculated_total"
+
+# Assistant metrics
+check_metric "Assistant" $ASSISTANT_PORT "assistant_llm_calls_total"
+check_metric "Assistant" $ASSISTANT_PORT "assistant_intent_detected_total"
+check_metric "Assistant" $ASSISTANT_PORT "assistant_tool_calls_total"
+
+echo ""
+echo "🌐 Interfaces :"
+echo "  - Grafana   : http://localhost:3000"
+echo "  - Prometheus: http://localhost:9090"
 echo ""
 echo "💡 Pour plus de trafic : ./scripts/generate_traffic_intensive.sh 100"
 echo ""
