@@ -302,7 +302,7 @@ Mais ajouter auth aurait complexifié le test sans valeur ajoutée (focus = arch
 ### Q12 : "Comment fonctionne l'orchestration LangGraph concrètement ?"
 
 **Réponse** :
-"**Workflow en 5 étapes** (voir `assistant/graph/workflow.py`) :
+"**Workflow en 5 étapes** (voir `assistant/agents/assistant_agent.py`) :
 
 **1. User prompt** : 'Je suis sur le vol AF282, à quelle heure j'arrive ?'
 
@@ -492,7 +492,18 @@ Mais pour le test technique, tests e2e + type hints + docs = bon équilibre qual
 
 **Réponse** :
 
-"**Court terme (1-2 sprints)** :
+"**Déjà implémentés (BONUS 3)** :
+
+1. **Multi-langue** ✅ :
+   - Détection automatique de la langue (FR/EN/ES)
+   - Réponse dans la même langue que la question
+   - Prompts système adaptés
+
+2. **Enrichissement pays** ✅ :
+   - Données de vol enrichies avec `arrival_country`
+   - Filtrage par destination ('vols vers les USA')
+
+**Court terme (1-2 sprints)** :
 
 1. **Notifications temps réel** :
    - WebSocket pour notifier retards/annulations
@@ -501,10 +512,6 @@ Mais pour le test technique, tests e2e + type hints + docs = bon équilibre qual
 2. **Historique conversationnel** :
    - Mémoriser le contexte user ('mon vol' = dernier vol cherché)
    - LangGraph state persistence
-
-3. **Multi-langue** :
-   - Prompts système adaptés (FR/EN/ES)
-   - Mistral supporte déjà multilangue
 
 **Moyen terme (3-6 mois)** :
 
@@ -768,7 +775,7 @@ Mais globalement : satisfait de l'architecture et des choix."
 
 **Réponse** :
 
-"**4 points de différenciation** :
+"**5 points de différenciation** :
 
 **1. Request Coalescing** (rare) :
 
@@ -778,17 +785,23 @@ Mais globalement : satisfait de l'architecture et des choix."
 
 **2. LangGraph 1.0** (très récent) :
 
-- v1.0 sortie nov 2025 (il y a 3 semaines)
+- v1.0 sortie nov 2025 (il y a quelques semaines)
 - Production-ready mais peu de projets l'utilisent encore
 - Démontre veille techno active
 
-**3. Monitoring complet dès le MVP** :
+**3. Multi-langue intelligent** (BONUS 3) :
+
+- Détection automatique de la langue de l'utilisateur
+- Réponse dans la même langue (FR/EN/ES)
+- Enrichissement des données avec pays de destination
+
+**4. Monitoring complet dès le MVP** :
 
 - 19 panels Grafana organisés en 5 sections
 - Métriques custom (cache, coalescing)
 - Rare sur un POC (souvent ajouté après)
 
-**4. Documentation exhaustive** :
+**5. Documentation exhaustive** :
 
 - README 1400+ lignes
 - Tous les choix justifiés
@@ -798,7 +811,7 @@ Mais globalement : satisfait de l'architecture et des choix."
 **Comparé à un projet 'classique'** :
 
 - Classique : monolithe + OpenAI + Redis
-- Moi : microservices + LangGraph + MongoDB + coalescing + monitoring
+- Moi : microservices + LangGraph + MongoDB + coalescing + multi-langue + monitoring
 
 Niveau de complexité supérieur, mais géré proprement."
 

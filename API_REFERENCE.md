@@ -28,7 +28,7 @@
 
 ## Airport Service (Port 8001)
 
-### Health Check
+### Health Check Airport
 
 ```bash
 GET /api/v1/health
@@ -37,6 +37,7 @@ curl http://localhost:8001/api/v1/health
 ```
 
 **Réponse :**
+
 ```json
 {
   "status": "healthy",
@@ -56,9 +57,11 @@ curl http://localhost:8001/api/v1/airports/CDG
 ```
 
 **Paramètres :**
+
 - `iata_code` (path, required) : Code IATA 3 lettres (ex: CDG, JFK, LHR)
 
 **Réponse 200 :**
+
 ```json
 {
   "iata_code": "CDG",
@@ -73,6 +76,7 @@ curl http://localhost:8001/api/v1/airports/CDG
 ```
 
 **Erreur 404 :**
+
 ```json
 {
   "detail": "Airport not found with IATA code: XXX"
@@ -95,12 +99,14 @@ curl "http://localhost:8001/api/v1/airports/search?name=Lyon&country_code=FR&lim
 ```
 
 **Paramètres :**
+
 - `name` (query, required) : Nom du lieu (min 2 caractères) - ville, région, etc.
 - `country_code` (query, required) : Code pays ISO 2 lettres en MAJUSCULES (ex: FR, US, GB)
 - `limit` (query, optional) : Nombre max de résultats (1-50, défaut: 10)
 - `offset` (query, optional) : Décalage pour pagination (défaut: 0)
 
 **Réponse 200 :**
+
 ```json
 {
   "airports": [
@@ -136,11 +142,13 @@ curl "http://localhost:8001/api/v1/airports/nearest-by-coords?latitude=48.8566&l
 ```
 
 **Paramètres :**
+
 - `latitude` (query, required) : Latitude GPS (-90 à 90)
 - `longitude` (query, required) : Longitude GPS (-180 à 180)
 - `country_code` (query, required) : Code pays ISO 2 lettres en MAJUSCULES
 
 **Réponse 200 :**
+
 ```json
 {
   "iata_code": "LIL",
@@ -167,6 +175,7 @@ curl "http://localhost:8001/api/v1/airports/nearest-by-address?address=10%20rue%
 ```
 
 **Paramètres :**
+
 - `address` (query, required) : Adresse textuelle (min 3 caractères)
 - `country_code` (query, required) : Code pays ISO 2 lettres en MAJUSCULES
 
@@ -185,11 +194,13 @@ curl "http://localhost:8001/api/v1/airports/CDG/departures?limit=5&offset=0"
 ```
 
 **Paramètres :**
+
 - `iata_code` (path, required) : Code IATA 3 lettres de l'aéroport
 - `limit` (query, optional) : Nombre max de vols (1-100, défaut: 10)
 - `offset` (query, optional) : Décalage pour pagination (défaut: 0)
 
 **Réponse 200 :**
+
 ```json
 {
   "flights": [
@@ -235,7 +246,7 @@ curl "http://localhost:8001/api/v1/airports/CDG/arrivals?limit=10"
 
 ## Flight Service (Port 8002)
 
-### Health Check
+### Health Check Flight
 
 ```bash
 GET /api/v1/health
@@ -257,9 +268,11 @@ curl http://localhost:8002/api/v1/flights/LH400
 ```
 
 **Paramètres :**
+
 - `flight_iata` (path, required) : Code IATA du vol (ex: AF447)
 
 **Réponse 200 :**
+
 ```json
 {
   "flight_iata": "AF447",
@@ -280,6 +293,7 @@ curl http://localhost:8002/api/v1/flights/LH400
 ```
 
 **Erreur 404 :**
+
 ```json
 {
   "detail": "Flight not found with IATA code: AF9999"
@@ -299,15 +313,18 @@ curl "http://localhost:8002/api/v1/flights/BA117/history?start_date=2025-10-15&e
 ```
 
 **Paramètres :**
+
 - `flight_iata` (path, required) : Code IATA du vol
 - `start_date` (query, required) : Date de début au format YYYY-MM-DD
 - `end_date` (query, required) : Date de fin au format YYYY-MM-DD
 
 **Limites :**
+
 - Période max : 90 jours
 - Données historiques : 3 mois en arrière (API Aviationstack Basic Plan)
 
 **Réponse 200 :**
+
 ```json
 {
   "flight_iata": "AF447",
@@ -344,6 +361,7 @@ curl "http://localhost:8002/api/v1/flights/BA117/statistics?start_date=2025-09-0
 **Paramètres :** Identiques à `/history`
 
 **Réponse 200 :**
+
 ```json
 {
   "flight_iata": "AF447",
@@ -366,7 +384,13 @@ curl "http://localhost:8002/api/v1/flights/BA117/statistics?start_date=2025-09-0
 
 ## Assistant Service (Port 8003)
 
-### Health Check
+**Fonctionnalités clés :**
+
+- Multi-langue automatique : Détecte la langue du prompt et répond dans la même langue (FR, EN, ES...)
+- Enrichissement des données de vol avec pays de destination (`arrival_country`)
+- 7 outils disponibles : 5 airport + 2 flight
+
+### Health Check Assistant
 
 ```bash
 GET /api/v1/health
@@ -391,6 +415,7 @@ curl -X POST http://localhost:8003/api/v1/assistant/interpret \
 ```
 
 **Body :**
+
 ```json
 {
   "prompt": "Votre question en langage naturel"
@@ -398,6 +423,7 @@ curl -X POST http://localhost:8003/api/v1/assistant/interpret \
 ```
 
 **Réponse 200 :**
+
 ```json
 {
   "intent": "get_flight_status",
@@ -409,6 +435,7 @@ curl -X POST http://localhost:8003/api/v1/assistant/interpret \
 ```
 
 **Intentions supportées :**
+
 - `get_flight_status` : Statut d'un vol
 - `search_airports` : Recherche d'aéroports
 - `get_departures` : Vols au départ
@@ -448,9 +475,23 @@ curl -X POST http://localhost:8003/api/v1/assistant/answer \
   -d '{
     "prompt": "Donne-moi les statistiques du vol BA117"
   }'
+
+# Exemples en anglais (multi-langue) :
+curl -X POST http://localhost:8003/api/v1/assistant/answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "What is the status of flight AF447?"
+  }'
+
+curl -X POST http://localhost:8003/api/v1/assistant/answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Show me flights to Japan from CDG"
+  }'
 ```
 
 **Body :**
+
 ```json
 {
   "prompt": "Votre question en langage naturel"
@@ -458,6 +499,7 @@ curl -X POST http://localhost:8003/api/v1/assistant/answer \
 ```
 
 **Réponse 200 :**
+
 ```json
 {
   "answer": "Le vol AF447 est prévu à 13h15 (heure locale) avec un retard estimé de 18 minutes. L'arrivée estimée est maintenant à 13h33.",
@@ -492,9 +534,9 @@ curl http://localhost:8003/metrics
 
 ### Grafana Dashboard
 
-URL : `http://localhost:3000`
+- URL : `http://localhost:3000`
 - Login : `admin`
-- Password : `admin123`
+- Password : `admin`
 
 ---
 
@@ -515,6 +557,7 @@ URL : `http://localhost:3000`
 ### 1. Endpoint `/airports/search`
 
 ❌ **FAUX** :
+
 ```bash
 # NE PAS utiliser /airports/search/coordinates
 curl http://localhost:8001/api/v1/airports/search/coordinates
@@ -524,6 +567,7 @@ curl "http://localhost:8001/api/v1/airports/search?name=Lille"
 ```
 
 ✅ **CORRECT** :
+
 ```bash
 # Utiliser les query params name ET country_code
 curl "http://localhost:8001/api/v1/airports/search?name=Lille&country_code=FR&limit=3"
@@ -532,12 +576,14 @@ curl "http://localhost:8001/api/v1/airports/search?name=Lille&country_code=FR&li
 ### 2. Endpoint `/airports/nearest-by-coords`
 
 ❌ **FAUX** :
+
 ```bash
 # NE PAS utiliser comme path parameters
 curl http://localhost:8001/api/v1/airports/nearest-by-coords/50.6292/3.0573
 ```
 
 ✅ **CORRECT** :
+
 ```bash
 # Utiliser les query params
 curl "http://localhost:8001/api/v1/airports/nearest-by-coords?latitude=50.6292&longitude=3.0573&country_code=FR"
@@ -546,12 +592,14 @@ curl "http://localhost:8001/api/v1/airports/nearest-by-coords?latitude=50.6292&l
 ### 3. Dates pour Flight History/Statistics
 
 ❌ **FAUX** :
+
 ```bash
 # Format de date invalide
 curl "http://localhost:8002/api/v1/flights/AF447/history?start_date=01-11-2025&end_date=14-11-2025"
 ```
 
 ✅ **CORRECT** :
+
 ```bash
 # Format YYYY-MM-DD requis
 curl "http://localhost:8002/api/v1/flights/AF447/history?start_date=2025-11-01&end_date=2025-11-14"

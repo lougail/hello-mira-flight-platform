@@ -120,12 +120,12 @@ curl http://localhost:8001/api/v1/airports/CDG | python -m json.tool
 **Demo 2 - Recherche par GPS** :
 
 ```bash
-curl "http://localhost:8001/api/v1/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522"
+curl "http://localhost:8001/api/v1/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FR"
 ```
 
 **À dire** :
 
-"Géocodage inverse : trouve l'aéroport le plus proche de coordonnées"
+"Recherche par coordonnées GPS : trouve l'aéroport le plus proche dans le pays spécifié"
 
 **Demo 3 - Vols au départ** :
 
@@ -267,7 +267,7 @@ sleep 15
 
 ### 4.1 Architecture LangGraph (1 min)
 
-**Montrer** : `assistant/graph/workflow.py`
+**Montrer** : `assistant/agents/assistant_agent.py`
 
 **Expliquer** :
 
@@ -275,7 +275,9 @@ sleep 15
 
 - **7 outils** exposés au LLM (5 airport + 2 flight)
 - **Graph stateful** : mémorisation entre appels
-- **Mistral AI** avec function calling natif"
+- **Mistral AI** avec function calling natif
+- **Multi-langue** : Détecte automatiquement FR/EN/ES et répond dans la même langue
+- **Enrichissement pays** : Données de vol avec `arrival_country` pour filtrer par destination"
 
 **Schéma mental** :
 
@@ -295,13 +297,13 @@ cat assistant/tools/flight_tools.py | grep "@tool"
 
 **7 outils** :
 
-1. `get_airport_by_iata`
-2. `search_airports`
-3. `get_nearest_airport` (coords)
-4. `get_nearest_airport` (address)
-5. `get_departures`
-6. `get_flight_status`
-7. `get_flight_statistics`
+1. `get_airport_by_iata` - Recherche par code IATA
+2. `search_airports` - Recherche par nom/ville
+3. `get_nearest_airport` - Aéroport le plus proche (GPS ou adresse)
+4. `get_departures` - Vols au départ d'un aéroport
+5. `get_arrivals` - Vols à l'arrivée d'un aéroport
+6. `get_flight_status` - Statut d'un vol
+7. `get_flight_statistics` - Statistiques d'un vol
 
 ### 4.3 Mode DEMO (30 sec)
 
