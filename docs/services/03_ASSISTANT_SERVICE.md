@@ -645,7 +645,7 @@ async def get_airport_by_iata_tool(iata: str) -> dict:
     Returns:
         Informations complètes sur l'aéroport
     """
-    async with AirportClient(settings.airport_api_url, settings.http_timeout, settings.demo_mode) as client:
+    async with AirportClient(settings.airport_api_url, settings.http_timeout) as client:
         return await client.get_airport_by_iata(iata)
 ```
 
@@ -735,7 +735,7 @@ async def get_flight_status_tool(flight_iata: str) -> dict:
     Returns:
         Statut actuel du vol avec horaires prévus, estimés, et retards
     """
-    async with FlightClient(settings.flight_api_url, settings.http_timeout, settings.demo_mode) as client:
+    async with FlightClient(settings.flight_api_url, settings.http_timeout) as client:
         return await client.get_flight_status(flight_iata)
 
 @tool
@@ -829,10 +829,9 @@ class AssistantState(TypedDict):
 
 ```python
 class AirportClient:
-    def __init__(self, base_url: str, timeout: int = 30, demo_mode: bool = False):
+    def __init__(self, base_url: str, timeout: int = 30):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.demo_mode = demo_mode
         self._client: Optional[httpx.AsyncClient] = None
 
     async def __aenter__(self):
@@ -849,7 +848,7 @@ class AirportClient:
 **Utilisation** :
 
 ```python
-async with AirportClient(base_url, timeout, demo_mode) as client:
+async with AirportClient(base_url, timeout) as client:
     result = await client.get_airport_by_iata("CDG")
 ```
 
@@ -873,36 +872,18 @@ async def _get(self, endpoint: str, params: Optional[Dict] = None) -> Dict[str, 
     return response.json()
 ```
 
-#### Mode DEMO
-
-```python
-async def get_airport_by_iata(self, iata: str) -> Dict[str, Any]:
-    # Mode DEMO : retourner données mockées
-    if self.demo_mode:
-        from tools.mock_data import MOCK_AIRPORTS
-        airport_data = MOCK_AIRPORTS.get(iata.upper())
-        if airport_data:
-            logger.info(f"DEMO MODE: Returning mock data for airport {iata}")
-            return {"data": airport_data}
-        else:
-            return {"error": f"Airport {iata} not found in mock data"}
-
-    return await self._get(f"/airports/{iata.upper()}")
-```
-
 ---
 
 ### 8. clients/flight_client.py - Client HTTP Flight
 
 **Localisation** : `assistant/clients/flight_client.py`
-**Lignes** : 161
+**Lignes** : ~100
 **Rôle** : Encapsulation des appels HTTP vers Flight
 
 Même architecture que AirportClient avec :
 
 - Context manager async
 - Gestion gracieuse des 404
-- Mode DEMO avec données mockées
 
 ---
 
@@ -929,7 +910,6 @@ class Settings(BaseSettings):
 
     # APPLICATION
     debug: bool = False
-    demo_mode: bool = False  # Données mockées au lieu d'appels réels
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     # LANGGRAPH
@@ -949,7 +929,6 @@ settings = Settings()
 **Points clés** :
 
 - `mistral_temperature: 0.0` : Réponses déterministes pour l'interprétation
-- `demo_mode` : Permet de fonctionner sans quota API
 - Chemin `.env` : Remonte de 2 niveaux (`assistant/config/` → racine)
 
 ---
@@ -1288,7 +1267,6 @@ Le LLM peut alors expliquer à l'utilisateur que la ressource n'a pas été trou
 | `FLIGHT_API_URL` | URL du microservice Flight | `http://flight:8002/api/v1` |
 | `HTTP_TIMEOUT` | Timeout HTTP en secondes | `30` |
 | `DEBUG` | Mode debug | `False` |
-| `DEMO_MODE` | Utilise des données mockées | `False` |
 | `CORS_ORIGINS` | Origins CORS autorisées | `["http://localhost:3000"]` |
 | `MAX_TOKENS` | Tokens max pour les réponses | `1000` |
 
@@ -1333,6 +1311,5 @@ Le microservice Assistant est le composant le plus complexe de la plateforme :
 4. **Multi-langue** : Répond dans la langue de l'utilisateur
 5. **Sécurité** : Refuse les questions hors-sujet et les tentatives de manipulation
 6. **Monitoring** : Métriques complètes sur les appels LLM et tools
-7. **Mode DEMO** : Fonctionne sans quota API avec données mockées
 
 Ce service démontre une utilisation avancée des LLM pour créer une expérience conversationnelle naturelle tout en maintenant la robustesse et l'observabilité.

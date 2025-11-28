@@ -611,18 +611,16 @@ curl "http://localhost:8002/api/v1/flights/AF447/history?start_date=2025-11-01&e
 
 1. **Cache MongoDB** : Les services Airport et Flight utilisent un cache intelligent avec TTL configurable pour limiter les appels à l'API Aviationstack.
 
-2. **Mode DEMO** : L'Assistant peut fonctionner en mode DEMO avec données mockées si `DEMO_MODE=true` dans `.env`.
-
-3. **Limites API Aviationstack** :
+2. **Limites API Aviationstack** :
    - Plan gratuit : 100 requêtes/mois
    - Historique : 3 mois en arrière max
    - Données temps réel limitées
 
-4. **Pagination** : Tous les endpoints de liste supportent `limit` et `offset` pour la pagination.
+3. **Pagination** : Tous les endpoints de liste supportent `limit` et `offset` pour la pagination.
 
-5. **CORS** : Tous les services ont CORS activé pour accepter les requêtes cross-origin du frontend.
+4. **CORS** : Tous les services ont CORS activé pour accepter les requêtes cross-origin du frontend.
 
-6. **Logs** : Tous les appels API sont loggés avec les paramètres pour faciliter le debugging.
+5. **Logs** : Tous les appels API sont loggés avec les paramètres pour faciliter le debugging.
 
 ---
 

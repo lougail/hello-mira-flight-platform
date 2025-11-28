@@ -240,12 +240,6 @@ async def fetch_airport(self, iata):
   # Retry automatique si timeout/502/503
 ```
 
-**3. Mode DEMO activable** :
-
-- Si API complètement HS, activer `DEMO_MODE=true`
-- Données mockées cohérentes servent de fallback
-- Application continue de fonctionner pour démos
-
 **Monitoring** :
 
 - Health check `/health/ready` vérifie MongoDB (pas l'API externe volontairement)
@@ -366,13 +360,7 @@ assert \"flight_iata\" in response.json()[\"data\"]  # Donnée extraite
 # ✅ Pas de assert sur le texte exact
 ```
 
-**2. Mode DEMO pour tests déterministes** :
-
-- `DEMO_MODE=true` → données mockées, pas d'appel LLM
-- Réponses prédictibles
-- Tests rapides (pas de quota LLM consommé)
-
-**3. Tests d'intégration des outils** :
+**2. Tests d'intégration des outils** :
 
 - Chaque outil testé indépendamment
 - Si outil marche, LLM peut l'utiliser
@@ -840,7 +828,7 @@ Niveau de complexité supérieur, mais géré proprement."
 
 - Pas juste 'ça marche', mais 'ça scale'
 - Monitoring dès le début
-- Mode DEMO pour démos commerciales
+- Gateway centralisé pour économie quota
 - Roadmap évolutions pensée
 
 **En équipe, j'apporterais** :

@@ -87,7 +87,6 @@ Architecture moderne combinant FastAPI, MongoDB, LangGraph et Mistral AI pour fo
 - [Monitoring & Métriques](#-monitoring--métriques)
 - [Tests](#-tests)
 - [Endpoints API](#-endpoints-api)
-- [Mode DEMO](#-mode-demo)
 - [Exemples d'Utilisation](#-exemples-dutilisation)
 - [Troubleshooting](#-troubleshooting)
 
@@ -231,7 +230,7 @@ hello-mira-flight-platform/
 │   │   └── flight_client.py          # Proxy HTTP vers Flight Service
 │   ├── config/
 │   │   ├── __init__.py
-│   │   └── settings.py               # Configuration + DEMO_MODE flag
+│   │   └── settings.py               # Configuration centralisée
 │   ├── models/
 │   │   ├── __init__.py
 │   │   ├── api/
@@ -244,11 +243,7 @@ hello-mira-flight-platform/
 │   └── tools/
 │       ├── __init__.py
 │       ├── airport_tools.py          # 5 outils LangGraph aéroports
-│       ├── flight_tools.py           # 2 outils LangGraph vols
-│       └── mock_data/
-│           ├── __init__.py
-│           ├── airports.py           # Mock LIL, CDG (DEMO mode)
-│           └── flights.py            # Mock AV15, AF282 (DEMO mode)
+│       └── flight_tools.py           # 2 outils LangGraph vols
 │
 ├── monitoring/                       # Infrastructure Monitoring
 │   ├── grafana/
@@ -397,7 +392,7 @@ Créer un fichier `.env` à la racine avec les variables suivantes :
 # API KEYS (Secrets - OBLIGATOIRE)
 # =============================================================================
 AVIATIONSTACK_API_KEY=votre_cle_ici          # ✅ OBLIGATOIRE
-MISTRAL_API_KEY=votre_cle_mistral_ici        # ✅ OBLIGATOIRE (si DEMO_MODE=false)
+MISTRAL_API_KEY=votre_cle_mistral_ici        # ✅ OBLIGATOIRE
 
 # =============================================================================
 # MONGODB
@@ -408,7 +403,6 @@ MONGO_PASSWORD=votre_mot_de_passe            # ✅ OBLIGATOIRE
 # APPLICATION SETTINGS (Configurables selon environnement)
 # =============================================================================
 DEBUG=false                                  # true en dev, false en prod
-DEMO_MODE=false                              # true = données mockées (pas d'appels API)
 MISTRAL_MODEL=open-mixtral-8x7b              # open-mixtral-8x7b (gratuit) ou mistral-large-latest (payant)
 ```
 
@@ -436,7 +430,6 @@ Lors du déploiement Docker, `docker-compose.yml` override certaines variables :
 | `FLIGHT_API_URL` | `http://flight:8002/api/v1` | URL interne Docker Flight |
 | `HTTP_TIMEOUT` | `30` | Timeout appels HTTP (secondes) |
 | `DEBUG` | `${DEBUG:-false}` | Utilise .env ou false |
-| `DEMO_MODE` | `${DEMO_MODE:-false}` | Utilise .env ou false |
 | `MAX_TOKENS` | `1000` | Tokens max pour réponses LLM |
 | `ENABLE_STREAMING` | `false` | Streaming désactivé |
 
@@ -560,117 +553,6 @@ Tous les endpoints sont documentés automatiquement via FastAPI Swagger UI.
   "entities": {"flight_iata": "AF282"},
   "confidence": 0.95
 }
-```
-
----
-
-## 🎭 Mode DEMO
-
-Le mode DEMO permet de tester le microservice **Assistant** avec des données mockées, **sans consommer de quota API Aviationstack**.
-
-### Activation
-
-Modifier le fichier `.env` à la racine du projet :
-
-```env
-DEMO_MODE=true
-```
-
-Puis recréer le container Assistant pour charger la nouvelle variable :
-
-```bash
-docker-compose up -d --force-recreate assistant
-```
-
-Ou redémarrer tous les services :
-
-```bash
-docker-compose down
-docker-compose up -d
-```
-
-### Données Mockées Disponibles
-
-Le mode DEMO utilise des données fictives cohérentes stockées dans `assistant/tools/mock_data/` :
-
-**Aéroports** :
-
-- **CDG** - Charles de Gaulle (Paris)
-- **BOG** - El Dorado International (Bogota)
-- **LIL** - Lille Airport
-
-**Vols** :
-
-- **AV15** - Avianca (BOG → CDG, en vol avec retard de 18 min)
-- **AF282** - Air France (CDG → NRT, statut complet)
-
-**Vols au départ** :
-
-- Liste de 5 vols au départ de CDG (AF007, EK073, VY8004, BA314, AF282)
-
-### Exemples de Prompts en Mode DEMO
-
-Ces prompts fonctionnent avec les données mockées :
-
-```bash
-# Statut d'un vol
-curl -X POST "http://localhost:8003/api/v1/assistant/answer" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Je suis sur le vol AV15, à quelle heure j'\''arrive ?"}'
-
-# Recherche d'aéroport
-curl -X POST "http://localhost:8003/api/v1/assistant/answer" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Trouve-moi l'\''aéroport le plus proche de Lille"}'
-
-# Vols au départ
-curl -X POST "http://localhost:8003/api/v1/assistant/answer" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Quels vols partent de CDG cet après-midi ?"}'
-
-# Statistiques
-curl -X POST "http://localhost:8003/api/v1/assistant/answer" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Donne-moi les statistiques du vol AV15"}'
-```
-
-### Avantages
-
-**Économie de quota API** :
-
-- Les appels à l'API Aviationstack sont simulés
-- Idéal pour démonstrations, tests, développement
-
-**Données cohérentes** :
-
-- Horaires réalistes (basés sur l'heure actuelle)
-- Retards, portes, terminaux fictifs mais plausibles
-- Réponses instantanées (pas d'appel HTTP externe)
-
-### Limitations
-
-**vs Mode Production** :
-
-- Données limitées (3 aéroports, 2 vols)
-- Pas de recherche géographique réelle
-- Historiques pré-générés (pas de données temps réel)
-- Ne teste pas la connectivité avec Airport/Flight microservices
-
-**Important** : Le mode DEMO ne concerne que le microservice **Assistant**. Les microservices Airport et Flight appellent toujours l'API Aviationstack (sauf si leur cache MongoDB contient les données).
-
-### Vérification du Mode
-
-Vérifier que le mode DEMO est actif dans les logs :
-
-```bash
-docker-compose logs assistant | grep "DEMO MODE"
-```
-
-Sortie attendue :
-
-```log
-assistant  | INFO:     AirportClient initialized in DEMO MODE - using mock data
-assistant  | INFO:     FlightClient initialized in DEMO MODE - using mock data
 ```
 
 ---
@@ -1298,21 +1180,6 @@ Les fixtures sont organisées en 3 niveaux :
 2. **`*/tests/conftest.py`** : Fixtures par service (mocks, données)
 3. **`tests/e2e/conftest.py`** : Scénarios e2e complexes
 
-### Mode DEMO pour Tests
-
-Pour tester sans consommer de quota API Aviationstack :
-
-```bash
-# Activer le mode DEMO
-export DEMO_MODE=true
-
-# Recréer le container Assistant
-docker-compose up -d --force-recreate assistant
-
-# Les tests Assistant utilisent maintenant les données mockées
-pytest tests/e2e/test_assistant_orchestration.py -v
-```
-
 ### CI/CD (À venir)
 
 Le projet est prêt pour intégration CI/CD avec :
@@ -1394,12 +1261,7 @@ docker-compose up -d
 
 **Solutions** :
 
-1. Activer le mode DEMO pour l'Assistant :
-
-```env
-DEMO_MODE=true
-```
-
+1. Attendre le renouvellement du quota (mensuel)
 2. Le cache MongoDB (TTL 300s) réduit les appels API - vérifier qu'il fonctionne :
 
 ```bash
@@ -1420,8 +1282,6 @@ docker-compose exec mongo mongosh hello_mira --eval "db.airport_cache.countDocum
 curl https://api.mistral.ai/v1/models \
   -H "Authorization: Bearer VOTRE_CLE"
 ```
-
-3. Activer le mode DEMO si pas de clé valide
 
 ### Problème : CORS errors depuis le frontend
 

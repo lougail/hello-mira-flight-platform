@@ -835,7 +835,6 @@ GRAFANA_PASSWORD=admin
 
 # Debug (optionnel)
 DEBUG=false
-DEMO_MODE=false
 MISTRAL_MODEL=mistral-large-latest
 ```
 
@@ -847,7 +846,7 @@ MISTRAL_MODEL=mistral-large-latest
 | **gateway** | `AVIATIONSTACK_API_KEY`, `MONGODB_URL`, `CACHE_TTL`, `DEBUG` |
 | **airport** | `GATEWAY_URL`, `DEBUG`, `CORS_ORIGINS` |
 | **flight** | `GATEWAY_URL`, `MONGODB_URL`, `DEBUG`, `CORS_ORIGINS` |
-| **assistant** | `MISTRAL_API_KEY`, `MISTRAL_MODEL`, `AIRPORT_API_URL`, `FLIGHT_API_URL`, `DEBUG`, `DEMO_MODE` |
+| **assistant** | `MISTRAL_API_KEY`, `MISTRAL_MODEL`, `AIRPORT_API_URL`, `FLIGHT_API_URL`, `DEBUG` |
 | **grafana** | `GF_SECURITY_ADMIN_USER`, `GF_SECURITY_ADMIN_PASSWORD`, `GF_AUTH_ANONYMOUS_ENABLED` |
 
 ---
@@ -921,7 +920,6 @@ docker-compose down -v
 **Solutions** :
 
 - Augmenter le TTL du cache (`CACHE_TTL=600`)
-- Activer le mode DEMO (`DEMO_MODE=true`)
 - Attendre le reset le 1er du mois
 
 ### Problème 2 : Circuit Breaker Ouvert

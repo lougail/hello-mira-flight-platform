@@ -268,7 +268,6 @@ services:
 
       # Application
       DEBUG: ${DEBUG:-false}
-      DEMO_MODE: ${DEMO_MODE:-false}  # Mode démo avec données mockées (pas de quota API Aviationstack)
       MAX_TOKENS: 1000
       ENABLE_STREAMING: "false"
 

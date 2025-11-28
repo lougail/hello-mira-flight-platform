@@ -305,21 +305,6 @@ cat assistant/tools/flight_tools.py | grep "@tool"
 6. `get_flight_status` - Statut d'un vol
 7. `get_flight_statistics` - Statistiques d'un vol
 
-### 4.3 Mode DEMO (30 sec)
-
-**À expliquer** :
-
-"Mode DEMO activable pour tests sans consommer quota API :
-
-- Données mockées cohérentes (3 aéroports, 2 vols)
-- Réponses instantanées
-- Idéal pour démonstrations/développement"
-
-```bash
-# Vérifier mode DEMO
-docker-compose logs assistant | grep "DEMO MODE"
-```
-
 ---
 
 ## ✅ Partie 5 : Tests & Qualité (1-2 min)
@@ -386,7 +371,7 @@ pytest tests/e2e/ -v
 **R** :
 
 - Cache sert données récentes (TTL 5 min)
-- Mode DEMO comme fallback
+- Circuit breaker protège le système
 - Logs d'erreur structurés
 - Health checks détectent problème
 
