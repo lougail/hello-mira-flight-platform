@@ -1,17 +1,27 @@
-"""
-Module de monitoring avec métriques Prometheus custom.
-"""
+"""Module de monitoring pour le service Flight."""
 
 from .metrics import (
-    cache_hits,
-    cache_misses,
-    cache_expired,
-    api_calls
+    flight_lookups,
+    flight_lookup_latency,
+    mongodb_operations,
+    flights_stored,
+    history_flights_count,
+    statistics_calculated,
+    statistics_flights_analyzed,
+    last_on_time_rate,
+    last_delay_rate,
+    last_average_delay,
 )
 
 __all__ = [
-    "cache_hits",
-    "cache_misses",
-    "cache_expired",
-    "api_calls"
+    "flight_lookups",
+    "flight_lookup_latency",
+    "mongodb_operations",
+    "flights_stored",
+    "history_flights_count",
+    "statistics_calculated",
+    "statistics_flights_analyzed",
+    "last_on_time_rate",
+    "last_delay_rate",
+    "last_average_delay",
 ]
