@@ -1,270 +1,228 @@
 # ============================================================================
-# HELLO MIRA - Collection de requetes HTTP
+# HELLO MIRA - Collection de requêtes HTTP (v2.0)
 # ============================================================================
 #
 # Utilisation :
 #   - VSCode : Installer l'extension "REST Client"
-#   - Cliquer sur "Send Request" au-dessus de chaque requete
-#   - Ou utiliser curl en ligne de commande
+#   - Cliquer sur "Send Request" au-dessus de chaque requête
 #
-# Prerequis :
-#   - Docker Compose lance : docker-compose up
-#   - Airport API : http://localhost:8001
-#   - Flight API : http://localhost:8002
+# Prérequis :
+#   - Docker Compose lancé : docker-compose up -d
+#   - 8 services running (mongo, gateway, airport, flight, assistant, prometheus, grafana, frontend)
 #
 # ============================================================================
 
+# Variables d'environnement
+@gatewayUrl = http://localhost:8004
 @airportUrl = http://localhost:8001/api/v1
 @flightUrl = http://localhost:8002/api/v1
+@assistantUrl = http://localhost:8003/api/v1
+@prometheusUrl = http://localhost:9090
+@grafanaUrl = http://localhost:3000
+
 
 # ============================================================================
-# HEALTH CHECK
+# HEALTH CHECKS - Tous les services
 # ============================================================================
+
+### Health Check - Gateway
+GET {{gatewayUrl}}/health
 
 ### Health Check - Airport API
 GET {{airportUrl}}/health
 
+### Health Check - Airport API (Readiness)
+GET {{airportUrl}}/health/ready
+
 ### Health Check - Flight API
 GET {{flightUrl}}/health
 
+### Health Check - Assistant API
+GET {{assistantUrl}}/health
+
+### Health Check - Prometheus
+GET {{prometheusUrl}}/-/healthy
+
+### Health Check - Grafana
+GET {{grafanaUrl}}/api/health
+
+
 # ============================================================================
-# PARTIE 1 - RECHERCHE D'AEROPORTS
+# GATEWAY - Monitoring et Stats (Port 8004)
+# ============================================================================
+
+### Gateway - Statistiques complètes (cache, coalescing, rate limit)
+GET {{gatewayUrl}}/stats
+
+### Gateway - Utilisation du quota API
+GET {{gatewayUrl}}/usage
+
+### Gateway - Métriques Prometheus
+GET {{gatewayUrl}}/metrics
+
+
+# ============================================================================
+# PARTIE 1 - RECHERCHE D'AÉROPORTS (Port 8001)
 # ============================================================================
 
 # ----------------------------------------------------------------------------
-# 1. Recherche par code IATA (ex: CDG, JFK, LHR)
+# 1. Recherche par code IATA
 # ----------------------------------------------------------------------------
 
-### Aeroport Charles de Gaulle (Paris)
+### Aéroport Charles de Gaulle (Paris)
 GET {{airportUrl}}/airports/CDG
 
-### Aeroport JFK (New York)
+### Aéroport JFK (New York)
 GET {{airportUrl}}/airports/JFK
 
-### Aeroport Heathrow (Londres)
+### Aéroport Heathrow (Londres)
 GET {{airportUrl}}/airports/LHR
 
+### Aéroport Lille-Lesquin
+GET {{airportUrl}}/airports/LIL
 
-# ----------------------------------------------------------------------------
-# 2. Recherche par nom de lieu (ville, region)
-# ----------------------------------------------------------------------------
-
-### Recherche par nom "Paris"
-GET {{airportUrl}}/airports/search?name=Paris
-
-### Recherche par nom "London"
-GET {{airportUrl}}/airports/search?name=London
-
-### Recherche par nom "Tokyo"
-GET {{airportUrl}}/airports/search?name=Tokyo
+### Aéroport Tokyo Haneda
+GET {{airportUrl}}/airports/HND
 
 
 # ----------------------------------------------------------------------------
-# 3. Recherche par coordonnees GPS (proximite)
+# 2. Recherche par nom de lieu (country_code REQUIS)
 # ----------------------------------------------------------------------------
 
-### Aeroport le plus proche de Paris (Latitude: 48.8566, Longitude: 2.3522)
-GET {{airportUrl}}/airports/nearest?lat=48.8566&lon=2.3522&radius=50
+### Recherche "Paris" en France
+GET {{airportUrl}}/airports/search?name=Paris&country_code=FR
 
-### Aeroport le plus proche de New York (Latitude: 40.7128, Longitude: -74.0060)
-GET {{airportUrl}}/airports/nearest?lat=40.7128&lon=-74.0060&radius=50
+### Recherche "London" au Royaume-Uni
+GET {{airportUrl}}/airports/search?name=London&country_code=GB
 
-### Aeroport le plus proche de Tokyo (Latitude: 35.6762, Longitude: 139.6503)
-GET {{airportUrl}}/airports/nearest?lat=35.6762&lon=139.6503&radius=50
+### Recherche "Tokyo" au Japon
+GET {{airportUrl}}/airports/search?name=Tokyo&country_code=JP
+
+### Recherche "Lyon" en France (limite 3)
+GET {{airportUrl}}/airports/search?name=Lyon&country_code=FR&limit=3
+
+### Recherche "New York" aux USA
+GET {{airportUrl}}/airports/search?name=New%20York&country_code=US
 
 
 # ----------------------------------------------------------------------------
-# 4. Recherche par adresse (geocodage automatique)
+# 3. Recherche par coordonnées GPS (country_code REQUIS)
 # ----------------------------------------------------------------------------
 
-### Aeroport le plus proche de "Lille, France"
-GET {{airportUrl}}/airports/nearest-by-address?address=Lille,France&country_code=FR
+### Aéroport le plus proche de Paris centre (48.8566, 2.3522)
+GET {{airportUrl}}/airports/nearest-by-coords?latitude=48.8566&longitude=2.3522&country_code=FR
 
-### Aeroport le plus proche de "10 rue de Rivoli, Paris"
-GET {{airportUrl}}/airports/nearest-by-address?address=10 rue de Rivoli, Paris&country_code=FR
+### Aéroport le plus proche de Lille (50.6292, 3.0573)
+GET {{airportUrl}}/airports/nearest-by-coords?latitude=50.6292&longitude=3.0573&country_code=FR
 
-### Aeroport le plus proche de "Tour Eiffel, Paris"
-GET {{airportUrl}}/airports/nearest?address=Tour Eiffel, Paris&radius=50
+### Aéroport le plus proche de Lyon (45.7640, 4.8357)
+GET {{airportUrl}}/airports/nearest-by-coords?latitude=45.7640&longitude=4.8357&country_code=FR
 
-### Aeroport le plus proche de "Times Square, New York"
-GET {{airportUrl}}/airports/nearest?address=Times Square, New York&radius=100
 
-### Aeroport le plus proche de "Big Ben, London"
-GET {{airportUrl}}/airports/nearest?address=Big Ben, London&radius=50
+# ----------------------------------------------------------------------------
+# 4. Recherche par adresse (géocodage automatique)
+# ----------------------------------------------------------------------------
+
+### Aéroport le plus proche de "Lille, France"
+GET {{airportUrl}}/airports/nearest-by-address?address=Lille&country_code=FR
+
+### Aéroport le plus proche de "10 rue de Rivoli, Paris"
+GET {{airportUrl}}/airports/nearest-by-address?address=10%20rue%20de%20Rivoli%20Paris&country_code=FR
+
+### Aéroport le plus proche de "Tour Eiffel, Paris"
+GET {{airportUrl}}/airports/nearest-by-address?address=Tour%20Eiffel%20Paris&country_code=FR
+
+### Aéroport le plus proche de "Marseille"
+GET {{airportUrl}}/airports/nearest-by-address?address=Marseille&country_code=FR
 
 
 # ============================================================================
-# PARTIE 2 - VOLS AU DEPART ET A L'ARRIVEE
+# PARTIE 2 - VOLS AU DÉPART ET À L'ARRIVÉE (Port 8001)
 # ============================================================================
 
 # ----------------------------------------------------------------------------
-# 1. Vols au depart d'un aeroport
+# 1. Vols au départ d'un aéroport
 # ----------------------------------------------------------------------------
 
-### Vols au depart de CDG (limite 10)
+### Vols au départ de CDG (limite 10)
 GET {{airportUrl}}/airports/CDG/departures?limit=10
 
-### Vols au depart de JFK (limite 20)
+### Vols au départ de JFK (limite 20)
 GET {{airportUrl}}/airports/JFK/departures?limit=20
 
-### Vols au depart de LHR avec pagination (offset 10, limite 5)
+### Vols au départ de LHR avec pagination
 GET {{airportUrl}}/airports/LHR/departures?limit=5&offset=10
 
+### Vols au départ de Lille
+GET {{airportUrl}}/airports/LIL/departures?limit=10
+
 
 # ----------------------------------------------------------------------------
-# 2. Vols a l'arrivee d'un aeroport
+# 2. Vols à l'arrivée d'un aéroport
 # ----------------------------------------------------------------------------
 
-### Vols a l'arrivee de CDG (limite 10)
+### Vols à l'arrivée de CDG (limite 10)
 GET {{airportUrl}}/airports/CDG/arrivals?limit=10
 
-### Vols a l'arrivee de JFK (limite 20)
+### Vols à l'arrivée de JFK (limite 20)
 GET {{airportUrl}}/airports/JFK/arrivals?limit=20
 
-### Vols a l'arrivee de LHR avec pagination (offset 10, limite 5)
+### Vols à l'arrivée de LHR avec pagination
 GET {{airportUrl}}/airports/LHR/arrivals?limit=5&offset=10
 
 
 # ============================================================================
-# TESTS DE CAS LIMITES
-# ============================================================================
-
-### Code IATA inexistant (doit retourner 404)
-GET {{airportUrl}}/airports/XXX
-
-### Coordonnees GPS invalides (doit retourner 400)
-GET {{airportUrl}}/airports/nearest?lat=200&lon=300
-
-### Adresse introuvable (doit retourner 404)
-GET {{airportUrl}}/airports/nearest?address=adresse_inexistante_12345
-
-### Pagination limite excessive (doit etre capee a 100)
-GET {{airportUrl}}/airports/CDG/departures?limit=1000
-
-
-# ============================================================================
-# PARTIE 2 - SUIVI INDIVIDUEL DE VOLS
+# PARTIE 3 - SUIVI INDIVIDUEL DE VOLS (Port 8002)
 # ============================================================================
 
 # ----------------------------------------------------------------------------
-# 1. Statut en temps reel d'un vol
+# 1. Statut en temps réel d'un vol
 # ----------------------------------------------------------------------------
 
-### Vol AF282 (Paris CDG -> Tokyo HND)
+### Vol AF282 (Air France)
 GET {{flightUrl}}/flights/AF282
-
-### Vol MU6241 (vol chinois)
-GET {{flightUrl}}/flights/MU6241
 
 ### Vol BA117 (British Airways)
 GET {{flightUrl}}/flights/BA117
 
+### Vol LH400 (Lufthansa)
+GET {{flightUrl}}/flights/LH400
 
-# ----------------------------------------------------------------------------
-# 2. Historique d'un vol sur une periode
-# ----------------------------------------------------------------------------
-
-### Historique AF282 (2 jours)
-GET {{flightUrl}}/flights/AF282/history?start_date=2025-11-21&end_date=2025-11-22
-
-### Historique MU6241 (3 jours)
-GET {{flightUrl}}/flights/MU6241/history?start_date=2025-11-20&end_date=2025-11-22
+### Vol AV15 (Avianca - exemple du cahier des charges)
+GET {{flightUrl}}/flights/AV15
 
 
 # ----------------------------------------------------------------------------
-# 3. Statistiques agregeees sur une periode
+# 2. Historique d'un vol sur une période
 # ----------------------------------------------------------------------------
 
-### Statistiques AF282 (ponctualite, retards)
-GET {{flightUrl}}/flights/AF282/statistics?start_date=2025-11-21&end_date=2025-11-22
+### Historique AF282 (7 derniers jours)
+GET {{flightUrl}}/flights/AF282/history?start_date=2025-11-21&end_date=2025-11-28
 
-### Statistiques MU6241
-GET {{flightUrl}}/flights/MU6241/statistics?start_date=2025-11-20&end_date=2025-11-22
+### Historique BA117 (14 derniers jours)
+GET {{flightUrl}}/flights/BA117/history?start_date=2025-11-14&end_date=2025-11-28
 
 
 # ----------------------------------------------------------------------------
-# 4. Cas limites
+# 3. Statistiques agrégées sur une période
 # ----------------------------------------------------------------------------
 
-### Vol inexistant (doit retourner 404)
-GET {{flightUrl}}/flights/XXXXX
+### Statistiques AF282 (30 jours)
+GET {{flightUrl}}/flights/AF282/statistics?start_date=2025-10-28&end_date=2025-11-28
 
-### Dates invalides (doit retourner 400)
-GET {{flightUrl}}/flights/AF282/history?start_date=2025-13-32&end_date=2025-11-22
-
-### Periode inversee (doit retourner 400)
-GET {{flightUrl}}/flights/AF282/history?start_date=2025-11-22&end_date=2025-11-21
+### Statistiques BA117 (30 jours)
+GET {{flightUrl}}/flights/BA117/statistics?start_date=2025-10-28&end_date=2025-11-28
 
 
 # ============================================================================
-# TESTS DE CACHE (relancer 2 fois pour voir cache hit)
+# PARTIE 4 - ASSISTANT IA CONVERSATIONNEL (Port 8003)
 # ============================================================================
-
-### 1ere requete - Cache MISS (appel API externe)
-GET {{airportUrl}}/airports/CDG
-
-### 2eme requete - Cache HIT (depuis MongoDB, plus rapide)
-GET {{airportUrl}}/airports/CDG
-
-
-# ============================================================================
-# DOCUMENTATION API
-# ============================================================================
-
-### Swagger UI (interface interactive)
-# Ouvrir dans le navigateur : http://localhost:8001/docs
-
-### ReDoc (documentation alternative)
-# Ouvrir dans le navigateur : http://localhost:8001/redoc
-
-### Schema OpenAPI JSON
-# GET http://localhost:8001/openapi.json
-
-
-# ============================================================================
-# NOTES
-# ============================================================================
-#
-# Microservice Airport (port 8001) :
-#   GET  /api/v1/health                              - Health check
-#   GET  /api/v1/airports/{iata}                     - Recherche par code IATA
-#   GET  /api/v1/airports/search?name={name}         - Recherche par nom
-#   GET  /api/v1/airports/nearest?lat={lat}&lon={lon} - Recherche par GPS
-#   GET  /api/v1/airports/nearest?address={address}  - Recherche par adresse
-#   GET  /api/v1/airports/{iata}/departures          - Vols au depart
-#   GET  /api/v1/airports/{iata}/arrivals            - Vols a l'arrivee
-#
-# Microservice Flight (port 8002) :
-#   GET  /api/v1/health                              - Health check
-#   GET  /api/v1/flights/{iata}                      - Statut temps reel d'un vol
-#   GET  /api/v1/flights/{iata}/history              - Historique sur une periode
-#   GET  /api/v1/flights/{iata}/statistics           - Statistiques agregeees
-#
-# Microservice Assistant (port 8003) :
-#   POST /api/v1/assistant/interpret                - Interprete l'intention
-#   POST /api/v1/assistant/answer                   - Reponse complete en langage naturel
-#
-# Optimisations :
-#   - Cache MongoDB avec TTL de 300s (5 minutes)
-#   - Historique construit progressivement (chaque appel stocke ~2 jours)
-#   - Statistiques : seuil retard > 15 min (standard aviation)
-#   - LangGraph StateGraph pour orchestration multi-agents
-#   - Mistral AI function calling pour detection d'intention
-#
-# ============================================================================
-
-
-# ============================================================================
-# PARTIE 4 - ASSISTANT IA CONVERSATIONNEL
-# ============================================================================
-
-@assistantUrl = http://localhost:8003/api/v1
 
 # ----------------------------------------------------------------------------
-# 1. Interpretation d'intention (sans execution)
+# 1. Interprétation d'intention (sans exécution)
 # ----------------------------------------------------------------------------
 
-### Interprete : Statut d'un vol
+### Interpréter : Statut d'un vol
 POST {{assistantUrl}}/assistant/interpret
 Content-Type: application/json
 
@@ -272,7 +230,7 @@ Content-Type: application/json
   "prompt": "Je suis sur le vol AF282, à quelle heure vais-je arriver ?"
 }
 
-### Interprete : Recherche d'aeroport
+### Interpréter : Recherche d'aéroport
 POST {{assistantUrl}}/assistant/interpret
 Content-Type: application/json
 
@@ -280,7 +238,7 @@ Content-Type: application/json
   "prompt": "Trouve-moi l'aéroport le plus proche de Lille"
 }
 
-### Interprete : Vols au depart
+### Interpréter : Vols au départ
 POST {{assistantUrl}}/assistant/interpret
 Content-Type: application/json
 
@@ -290,10 +248,10 @@ Content-Type: application/json
 
 
 # ----------------------------------------------------------------------------
-# 2. Reponse complete en langage naturel (orchestration complete)
+# 2. Réponse complète en langage naturel (orchestration LangGraph)
 # ----------------------------------------------------------------------------
 
-### Exemple du cahier des charges 1 : Statut d'un vol
+### Exemple cahier des charges 1 : Statut d'un vol
 POST {{assistantUrl}}/assistant/answer
 Content-Type: application/json
 
@@ -301,7 +259,7 @@ Content-Type: application/json
   "prompt": "Je suis sur le vol AV15, à quelle heure vais-je arriver ?"
 }
 
-### Exemple du cahier des charges 2 : Vols au depart
+### Exemple cahier des charges 2 : Vols au départ
 POST {{assistantUrl}}/assistant/answer
 Content-Type: application/json
 
@@ -309,7 +267,7 @@ Content-Type: application/json
   "prompt": "Quels vols partent de CDG cet après-midi ?"
 }
 
-### Exemple du cahier des charges 3 : Aeroport le plus proche
+### Exemple cahier des charges 3 : Aéroport le plus proche
 POST {{assistantUrl}}/assistant/answer
 Content-Type: application/json
 
@@ -325,7 +283,7 @@ Content-Type: application/json
   "prompt": "Je suis sur le vol AF282, à quelle heure j'arrive ?"
 }
 
-### Recherche d'aeroport par nom
+### Recherche d'aéroport par nom
 POST {{assistantUrl}}/assistant/answer
 Content-Type: application/json
 
@@ -341,7 +299,7 @@ Content-Type: application/json
   "prompt": "Donne-moi les statistiques de ponctualité du vol BA117 sur les 30 derniers jours"
 }
 
-### Vols a l'arrivee
+### Vols à l'arrivée
 POST {{assistantUrl}}/assistant/answer
 Content-Type: application/json
 
@@ -349,7 +307,7 @@ Content-Type: application/json
   "prompt": "Quels vols arrivent à JFK dans les prochaines heures ?"
 }
 
-### Informations sur un aeroport
+### Informations sur un aéroport
 POST {{assistantUrl}}/assistant/answer
 Content-Type: application/json
 
@@ -357,5 +315,131 @@ Content-Type: application/json
   "prompt": "Donne-moi des informations sur l'aéroport CDG"
 }
 
+### Question en anglais (multi-langue)
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
 
+{
+  "prompt": "What is the status of flight AF282?"
+}
+
+### Vols vers un pays spécifique
+POST {{assistantUrl}}/assistant/answer
+Content-Type: application/json
+
+{
+  "prompt": "Quels vols partent de CDG vers les États-Unis ?"
+}
+
+
+# ============================================================================
+# CAS LIMITES ET ERREURS
+# ============================================================================
+
+### Code IATA inexistant (doit retourner 404)
+GET {{airportUrl}}/airports/XXX
+
+### Vol inexistant (doit retourner 404)
+GET {{flightUrl}}/flights/XXXXX
+
+### Coordonnées GPS invalides (doit retourner 422)
+GET {{airportUrl}}/airports/nearest-by-coords?latitude=200&longitude=300&country_code=FR
+
+### Recherche sans country_code (doit retourner 422)
+GET {{airportUrl}}/airports/search?name=Paris
+
+### Dates invalides (doit retourner 422)
+GET {{flightUrl}}/flights/AF282/history?start_date=2025-13-32&end_date=2025-11-22
+
+### Période inversée (doit retourner 400)
+GET {{flightUrl}}/flights/AF282/history?start_date=2025-11-28&end_date=2025-11-21
+
+### Pagination limite excessive (cappée à 100)
+GET {{airportUrl}}/airports/CDG/departures?limit=1000
+
+
+# ============================================================================
+# TESTS DE CACHE ET COALESCING
+# ============================================================================
+
+### 1ère requête - Cache MISS (appel API externe)
+GET {{airportUrl}}/airports/CDG
+
+### 2ème requête - Cache HIT (depuis MongoDB, plus rapide)
+GET {{airportUrl}}/airports/CDG
+
+### Vérifier les stats Gateway après les requêtes
+GET {{gatewayUrl}}/stats
+
+
+# ============================================================================
+# PROMETHEUS - Requêtes PromQL
+# ============================================================================
+
+### Cache hit rate
+GET {{prometheusUrl}}/api/v1/query?query=sum(gateway_cache_hits_total)
+
+### API calls total
+GET {{prometheusUrl}}/api/v1/query?query=sum(gateway_api_calls_total)
+
+### Circuit breaker state
+GET {{prometheusUrl}}/api/v1/query?query=gateway_circuit_breaker_state
+
+### Rate limit remaining
+GET {{prometheusUrl}}/api/v1/query?query=gateway_rate_limit_remaining
+
+
+# ============================================================================
+# DOCUMENTATION API
+# ============================================================================
+
+### Swagger UI Gateway
+# Ouvrir : http://localhost:8004/docs
+
+### Swagger UI Airport
+# Ouvrir : http://localhost:8001/docs
+
+### Swagger UI Flight
+# Ouvrir : http://localhost:8002/docs
+
+### Swagger UI Assistant
+# Ouvrir : http://localhost:8003/docs
+
+### Grafana Dashboard
+# Ouvrir : http://localhost:3000 (admin/admin)
+
+
+# ============================================================================
+# RÉSUMÉ DES ENDPOINTS
+# ============================================================================
+#
+# GATEWAY (port 8004) :
+#   GET  /health              - Health check
+#   GET  /stats               - Statistiques complètes
+#   GET  /usage               - Quota API mensuel
+#   GET  /metrics             - Métriques Prometheus
+#   GET  /airports            - Proxy Aviationstack airports
+#   GET  /flights             - Proxy Aviationstack flights
+#
+# AIRPORT (port 8001) :
+#   GET  /api/v1/health                              - Health check
+#   GET  /api/v1/health/ready                        - Readiness probe
+#   GET  /api/v1/airports/{iata}                     - Par code IATA
+#   GET  /api/v1/airports/search                     - Par nom (country_code requis)
+#   GET  /api/v1/airports/nearest-by-coords          - Par GPS (country_code requis)
+#   GET  /api/v1/airports/nearest-by-address         - Par adresse (country_code requis)
+#   GET  /api/v1/airports/{iata}/departures          - Vols au départ
+#   GET  /api/v1/airports/{iata}/arrivals            - Vols à l'arrivée
+#
+# FLIGHT (port 8002) :
+#   GET  /api/v1/health                              - Health check
+#   GET  /api/v1/flights/{iata}                      - Statut temps réel
+#   GET  /api/v1/flights/{iata}/history              - Historique (max 90 jours)
+#   GET  /api/v1/flights/{iata}/statistics           - Statistiques agrégées
+#
+# ASSISTANT (port 8003) :
+#   GET  /api/v1/health                              - Health check
+#   POST /api/v1/assistant/interpret                 - Interprète l'intention
+#   POST /api/v1/assistant/answer                    - Réponse complète LangGraph
+#
 # ============================================================================
