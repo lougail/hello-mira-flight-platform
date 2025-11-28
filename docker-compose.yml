@@ -72,15 +72,15 @@ services:
         max-file: "3"
 
   # ==========================================================================
-  # Airport - Microservice de recherche d'aeroports
+  # Gateway - API Gateway pour Aviationstack
   # ==========================================================================
-  airport:
+  gateway:
     build:
-      context: ./airport
+      context: ./gateway
       dockerfile: Dockerfile
 
-    image: hello-mira/airport:latest
-    container_name: hello-mira-airport
+    image: hello-mira/gateway:latest
+    container_name: hello-mira-gateway
     restart: unless-stopped
 
     # Dependances
@@ -96,7 +96,6 @@ services:
       # MongoDB (avec authentification)
       MONGODB_URL: mongodb://admin:${MONGO_PASSWORD}@mongo:27017
       MONGODB_DATABASE: hello_mira
-      MONGODB_TIMEOUT: 5000
 
       # Cache
       CACHE_TTL: 300
@@ -104,8 +103,56 @@ services:
       # Application
       DEBUG: ${DEBUG:-false}
 
-      # CORS (pour le frontend React)
-      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
+    # Ports exposes
+    ports:
+      - "8004:8004"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; exit(0 if httpx.get('http://localhost:8004/health').status_code == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Reseau dedie
+    networks:
+      - hello-mira-network
+
+    # Logging limite
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================================================
+  # Airport - Microservice de recherche d'aeroports
+  # ==========================================================================
+  airport:
+    build:
+      context: ./airport
+      dockerfile: Dockerfile
+
+    image: hello-mira/airport:latest
+    container_name: hello-mira-airport
+    restart: unless-stopped
+
+    # Dependances (Gateway pour les appels API)
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+    # Variables d'environnement
+    environment:
+      # Gateway (centralise les appels Aviationstack)
+      GATEWAY_URL: http://gateway:8004
+
+      # Application
+      DEBUG: ${DEBUG:-false}
+
+      # CORS (pour le frontend)
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000", "http://localhost:8501"]'
 
     # Ports exposes
     ports:
@@ -142,29 +189,28 @@ services:
     container_name: hello-mira-flight
     restart: unless-stopped
 
-    # Dependances
+    # Dependances (Gateway + MongoDB pour l'historique)
     depends_on:
+      gateway:
+        condition: service_healthy
       mongo:
         condition: service_healthy
 
     # Variables d'environnement
     environment:
-      # API Aviationstack
-      AVIATIONSTACK_API_KEY: ${AVIATIONSTACK_API_KEY}
+      # Gateway (centralise les appels Aviationstack)
+      GATEWAY_URL: http://gateway:8004
 
-      # MongoDB (avec authentification)
+      # MongoDB (pour l'historique des vols uniquement)
       MONGODB_URL: mongodb://admin:${MONGO_PASSWORD}@mongo:27017
       MONGODB_DATABASE: hello_mira
       MONGODB_TIMEOUT: 5000
 
-      # Cache
-      CACHE_TTL: 300
-
       # Application
       DEBUG: ${DEBUG:-false}
 
-      # CORS (pour le frontend React)
-      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
+      # CORS (pour le frontend)
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000", "http://localhost:8501"]'
 
     # Ports exposes
     ports:
@@ -226,8 +272,8 @@ services:
       MAX_TOKENS: 1000
       ENABLE_STREAMING: "false"
 
-      # CORS (pour le frontend React)
-      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
+      # CORS (pour le frontend)
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000", "http://localhost:8501"]'
 
     # Ports exposes
     ports:
@@ -346,6 +392,57 @@ services:
     # Health check
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Réseau dédié
+    networks:
+      - hello-mira-network
+
+    # Logging limité
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================================================
+  # Frontend - Interface Streamlit avec authentification Supabase
+  # ==========================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    image: hello-mira/frontend:latest
+    container_name: hello-mira-frontend
+    restart: unless-stopped
+
+    # Dépendances
+    depends_on:
+      assistant:
+        condition: service_healthy
+
+    # Variables d'environnement
+    environment:
+      # URLs des microservices (internes au réseau Docker)
+      ASSISTANT_URL: http://assistant:8003
+      AIRPORT_URL: http://airport:8001
+      FLIGHT_URL: http://flight:8002
+
+    # Secrets Supabase (à configurer dans .streamlit/secrets.toml)
+    volumes:
+      - ./frontend/.streamlit:/app/.streamlit:ro
+
+    # Ports exposés
+    ports:
+      - "8501:8501"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
       interval: 30s
       timeout: 10s
       retries: 3
