@@ -2,27 +2,39 @@
 Service metier principal pour les vols.
 
 Responsabilites :
-- Orchestrer les appels au client Aviationstack
-- Utiliser le cache pour optimiser les appels API
+- Orchestrer les appels au client Aviationstack (via Gateway)
 - Consulter le statut d'un vol en temps reel
 - Recuperer l'historique d'un vol sur une periode
 - Calculer des statistiques agregeees (taux de retard, duree moyenne, etc.)
 
 Architecture :
 Ce service ORCHESTRE et delegue :
-- Cache -> CacheService
-- Appels API -> AviationstackClient
+- Appels API -> AviationstackClient (via Gateway)
 - Stockage local -> MongoDB (pour historique)
+
+Note: Le cache est gere par le Gateway, pas par ce service.
 """
 
 import logging
+import time
 from typing import List, Optional
-from datetime import datetime, timedelta
-from statistics import mean, stdev
+from datetime import datetime
+from statistics import mean
 
 from clients.aviationstack_client import AviationstackClient
 from models import Flight
-from .cache_service import CacheService
+from monitoring.metrics import (
+    flight_lookups,
+    flight_lookup_latency,
+    mongodb_operations,
+    flights_stored,
+    history_flights_count,
+    statistics_calculated,
+    statistics_flights_analyzed,
+    last_on_time_rate,
+    last_delay_rate,
+    last_average_delay,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +102,7 @@ class FlightService:
     Service principal pour gerer les vols.
 
     Usage:
-        service = FlightService(client, cache_service, flights_collection)
+        service = FlightService(client, flights_collection)
         flight = await service.get_flight_status("AF447")
         history = await service.get_flight_history("AF447", "2024-11-01", "2024-11-13")
         stats = await service.get_flight_statistics("AF447", "2024-10-01", "2024-11-13")
@@ -99,19 +111,16 @@ class FlightService:
     def __init__(
         self,
         aviationstack_client: AviationstackClient,
-        cache_service: Optional[CacheService] = None,
-        flights_collection = None
+        flights_collection=None
     ):
         """
         Initialise le service avec ses dependances.
 
         Args:
-            aviationstack_client: Client pour l'API Aviationstack
-            cache_service: Service de cache (optionnel)
+            aviationstack_client: Client pour l'API Aviationstack (via Gateway)
             flights_collection: Collection MongoDB pour stocker l'historique (optionnel)
         """
         self.client = aviationstack_client
-        self.cache = cache_service
         self.flights_collection = flights_collection
 
     # ========================================================================
@@ -122,8 +131,7 @@ class FlightService:
         """
         Recupere le statut en temps reel d'un vol.
 
-        Utilise le cache si disponible pour optimiser.
-        Appelle l'API sans flight_date pour obtenir le vol en cours ou prevu.
+        Appelle le Gateway (qui gere le cache) pour obtenir le vol en cours ou prevu.
 
         Args:
             flight_iata: Numero de vol (ex: "AF447", "BA117")
@@ -138,59 +146,69 @@ class FlightService:
             ...     print(f"Depart: {flight.departure.scheduled_time}")
         """
         flight_iata = flight_iata.upper()
-        cache_key = f"flight:status:{flight_iata}"
+        start_time = time.time()
 
-        # 1. Essaye le cache (TTL court pour statut temps reel)
-        if self.cache:
-            cached_data = await self.cache.get(cache_key)
-            if cached_data:
-                logger.info(f"Flight status {flight_iata} trouve dans le cache")
-                return Flight(**cached_data)
+        try:
+            # Appelle le Gateway (qui gere le cache)
+            logger.info(f"Recuperation du statut de {flight_iata} depuis le Gateway")
+            flights = await self.client.get_flights(flight_iata=flight_iata, limit=100)
 
-        # 2. Appelle l'API (sans flight_date = récupère historique de 2-3 jours)
-        logger.info(f"Recuperation du statut de {flight_iata} depuis l'API")
-        flights = await self.client.get_flights(flight_iata=flight_iata, limit=100)
+            if not flights:
+                logger.warning(f"Vol {flight_iata} non trouve")
+                # Metrics: recherche sans resultat
+                latency = time.time() - start_time
+                flight_lookups.labels(type="status", status="not_found").inc()
+                flight_lookup_latency.labels(type="status").observe(latency)
+                return None
 
-        if not flights:
-            logger.warning(f"Vol {flight_iata} non trouve")
-            return None
+            # Le premier vol est le plus récent (celui qu'on retourne)
+            current_flight = flights[0]
 
-        # Le premier vol est le plus récent (celui qu'on retourne)
-        current_flight = flights[0]
+            # Stocke TOUS les vols dans MongoDB pour construire l'historique
+            # L'API retourne 2-3 vols (aujourd'hui + jours précédents)
+            if self.flights_collection is not None:
+                try:
+                    queried_at = datetime.utcnow()
+                    stored_count = 0
 
-        # 3. Stocke TOUS les vols dans MongoDB pour construire l'historique
-        # L'API retourne 2-3 vols (aujourd'hui + jours précédents)
-        if self.flights_collection is not None:
-            try:
-                queried_at = datetime.utcnow()
-                stored_count = 0
+                    for flight in flights:
+                        # Utilise upsert pour éviter les doublons (clé unique: flight_iata + flight_date)
+                        await self.flights_collection.update_one(
+                            {
+                                "flight_iata": flight.flight_iata,
+                                "flight_date": flight.flight_date
+                            },
+                            {
+                                "$set": {
+                                    **flight.model_dump(),
+                                    "queried_at": queried_at
+                                }
+                            },
+                            upsert=True
+                        )
+                        stored_count += 1
 
-                for flight in flights:
-                    # Utilise upsert pour éviter les doublons (clé unique: flight_iata + flight_date)
-                    await self.flights_collection.update_one(
-                        {
-                            "flight_iata": flight.flight_iata,
-                            "flight_date": flight.flight_date
-                        },
-                        {
-                            "$set": {
-                                **flight.model_dump(),
-                                "queried_at": queried_at
-                            }
-                        },
-                        upsert=True
-                    )
-                    stored_count += 1
+                    # Metrics: vols stockes
+                    flights_stored.inc(stored_count)
+                    mongodb_operations.labels(operation="store", status="success").inc()
+                    logger.info(f"Stocke {stored_count} vols de {flight_iata} dans l'historique MongoDB")
+                except Exception as e:
+                    mongodb_operations.labels(operation="store", status="error").inc()
+                    logger.error(f"Erreur stockage vols {flight_iata}: {e}")
 
-                logger.info(f"Stocke {stored_count} vols de {flight_iata} dans l'historique MongoDB")
-            except Exception as e:
-                logger.error(f"Erreur stockage vols {flight_iata}: {e}")
+            # Metrics: recherche reussie
+            latency = time.time() - start_time
+            flight_lookups.labels(type="status", status="success").inc()
+            flight_lookup_latency.labels(type="status").observe(latency)
 
-        # 4. Met en cache (TTL court pour donnees temps reel)
-        if self.cache:
-            await self.cache.set(cache_key, current_flight.model_dump())
+            return current_flight
 
-        return current_flight
+        except Exception as e:
+            # Metrics: erreur
+            latency = time.time() - start_time
+            flight_lookups.labels(type="status", status="error").inc()
+            flight_lookup_latency.labels(type="status").observe(latency)
+            raise
 
     # ========================================================================
     # HISTORIQUE
@@ -233,6 +251,7 @@ class FlightService:
             >>> print(f"Trouve {len(history)} vols")
         """
         flight_iata = flight_iata.upper()
+        start_time = time.time()
 
         # Parse les dates
         try:
@@ -240,11 +259,13 @@ class FlightService:
             end = datetime.strptime(end_date, "%Y-%m-%d")
         except ValueError as e:
             logger.error(f"Format de date invalide: {e}")
+            flight_lookups.labels(type="history", status="error").inc()
             return []
 
         # Valide la periode
         if start > end:
             logger.error("Date de debut apres date de fin")
+            flight_lookups.labels(type="history", status="error").inc()
             return []
 
         logger.info(
@@ -255,54 +276,72 @@ class FlightService:
         # Vérifie que la collection MongoDB est disponible
         if self.flights_collection is None:
             logger.warning("Collection MongoDB non disponible, historique vide")
+            flight_lookups.labels(type="history", status="error").inc()
             return []
 
-        # Requête MongoDB pour récupérer les vols dans la période
-        # On filtre par flight_iata et flight_date
-        query = {
-            "flight_iata": flight_iata,
-            "flight_date": {
-                "$gte": start_date,
-                "$lte": end_date
+        try:
+            # Requête MongoDB pour récupérer les vols dans la période
+            # On filtre par flight_iata et flight_date
+            query = {
+                "flight_iata": flight_iata,
+                "flight_date": {
+                    "$gte": start_date,
+                    "$lte": end_date
+                }
             }
-        }
 
-        # Tri par date
-        cursor = self.flights_collection.find(query).sort("flight_date", 1)
-        flights_data = await cursor.to_list(length=None)
+            # Tri par date
+            cursor = self.flights_collection.find(query).sort("flight_date", 1)
+            flights_data = await cursor.to_list(length=None)
 
-        # Convertit en objets Flight
-        all_flights = []
-        seen_dates = set()  # Pour éviter les doublons (si consulté plusieurs fois le même jour)
+            # Metrics: operation MongoDB reussie
+            mongodb_operations.labels(operation="retrieve", status="success").inc()
 
-        for data in flights_data:
-            # Retire les champs MongoDB internes
-            data.pop("_id", None)
-            data.pop("queried_at", None)
+            # Convertit en objets Flight
+            all_flights = []
+            seen_dates = set()  # Pour éviter les doublons (si consulté plusieurs fois le même jour)
 
-            # Évite les doublons pour le même jour
-            flight_date = data.get("flight_date")
-            if flight_date in seen_dates:
-                continue
-            seen_dates.add(flight_date)
+            for data in flights_data:
+                # Retire les champs MongoDB internes
+                data.pop("_id", None)
+                data.pop("queried_at", None)
 
-            try:
-                flight = Flight(**data)
-                all_flights.append(flight)
-            except Exception as e:
-                logger.error(f"Erreur lors de la conversion du vol: {e}")
-                continue
+                # Évite les doublons pour le même jour
+                flight_date = data.get("flight_date")
+                if flight_date in seen_dates:
+                    continue
+                seen_dates.add(flight_date)
 
-        logger.info(f"Trouve {len(all_flights)} vols pour {flight_iata} dans MongoDB")
+                try:
+                    flight = Flight(**data)
+                    all_flights.append(flight)
+                except Exception as e:
+                    logger.error(f"Erreur lors de la conversion du vol: {e}")
+                    continue
 
-        # Si aucun historique trouvé, suggère de consulter le vol d'abord
-        if not all_flights:
-            logger.info(
-                f"Aucun historique pour {flight_iata}. "
-                f"Consultez d'abord GET /flights/{flight_iata} pour accumuler des données."
-            )
+            logger.info(f"Trouve {len(all_flights)} vols pour {flight_iata} dans MongoDB")
 
-        return all_flights
+            # Metrics: recherche terminee
+            latency = time.time() - start_time
+            status = "success" if all_flights else "not_found"
+            flight_lookups.labels(type="history", status=status).inc()
+            flight_lookup_latency.labels(type="history").observe(latency)
+            history_flights_count.observe(len(all_flights))
+
+            # Si aucun historique trouvé, suggère de consulter le vol d'abord
+            if not all_flights:
+                logger.info(
+                    f"Aucun historique pour {flight_iata}. "
+                    f"Consultez d'abord GET /flights/{flight_iata} pour accumuler des données."
+                )
+
+            return all_flights
+
+        except Exception as e:
+            mongodb_operations.labels(operation="retrieve", status="error").inc()
+            flight_lookups.labels(type="history", status="error").inc()
+            logger.error(f"Erreur MongoDB: {e}")
+            raise
 
     # ========================================================================
     # STATISTIQUES
@@ -346,6 +385,7 @@ class FlightService:
 
         if not flights:
             logger.warning(f"Pas de donnees pour calculer les statistiques de {flight_iata}")
+            flight_lookups.labels(type="statistics", status="not_found").inc()
             return None
 
         # 2. Calcule les metriques
@@ -404,6 +444,19 @@ class FlightService:
             max_delay_minutes=max_delay,
             average_duration_minutes=avg_duration
         )
+
+        # Metrics: enregistre les statistiques calculees
+        statistics_calculated.inc()
+        statistics_flights_analyzed.observe(total)
+
+        # Metrics: gauges pour les dernieres statistiques par vol
+        last_on_time_rate.labels(flight_iata=flight_iata).set(stats.on_time_rate)
+        last_delay_rate.labels(flight_iata=flight_iata).set(stats.delay_rate)
+        if avg_delay is not None:
+            last_average_delay.labels(flight_iata=flight_iata).set(avg_delay)
+
+        # Metrics: recherche statistiques reussie
+        flight_lookups.labels(type="statistics", status="success").inc()
 
         logger.info(
             f"Statistiques {flight_iata}: {total} vols, "

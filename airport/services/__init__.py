@@ -1,21 +1,20 @@
 """
 Services métier du microservice Airport.
 
-Architecture en 3 couches :
-- CacheService : Gestion du cache MongoDB (réutilisable)
+Architecture :
 - GeocodingService : Géocodage et calcul de distances
 - AirportService : Orchestration principale
 
+Note: Le cache est géré par le Gateway, pas au niveau service.
+
 Usage:
-    from services import AirportService, CacheService, GeocodingService
+    from services import AirportService, GeocodingService
 """
 
-from .cache_service import CacheService
 from .geocoding_service import GeocodingService
 from .airport_service import AirportService
 
 __all__ = [
-    "CacheService",
     "GeocodingService",
     "AirportService",
 ]

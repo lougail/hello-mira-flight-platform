@@ -1,6 +1,7 @@
 """
 Configuration du microservice Flight.
-Partage la meme base MongoDB que Airport.
+Utilise le Gateway pour les appels Aviationstack.
+MongoDB pour l'historique des vols.
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,18 +11,17 @@ from pathlib import Path
 class Settings(BaseSettings):
     """Configuration Flight microservice."""
 
-    # API Aviationstack (partagee avec Airport)
-    aviationstack_api_key: str
-    aviationstack_base_url: str = "http://api.aviationstack.com/v1"
+    # API Aviationstack (via Gateway)
     aviationstack_timeout: int = 30
 
-    # MongoDB (meme instance que Airport)
+    # Gateway (centralise tous les appels Aviationstack)
+    # Le Gateway gère: rate limiting, cache, circuit breaker, coalescing
+    gateway_url: str = "http://gateway:8004"
+
+    # MongoDB (pour l'historique des vols)
     mongodb_url: str = "mongodb://localhost:27017"
     mongodb_database: str = "hello_mira"
     mongodb_timeout: int = 5000
-
-    # Cache
-    cache_ttl: int = 300  # 5 minutes
 
     # Application
     app_name: str = "Hello Mira - Flight Service"

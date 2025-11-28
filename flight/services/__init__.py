@@ -1,19 +1,18 @@
 """
 Services metier du microservice Flight.
 
-Architecture en 2 couches :
-- CacheService : Gestion du cache MongoDB (reutilisable, copie depuis Airport)
-- FlightService : Orchestration principale
+Architecture simplifiee :
+- FlightService : Orchestration principale (appels Gateway + historique MongoDB)
+
+Note: Le cache est gere par le Gateway, pas par ce service.
 
 Usage:
-    from services import FlightService, CacheService
+    from services import FlightService
 """
 
-from .cache_service import CacheService
 from .flight_service import FlightService, FlightStatistics
 
 __all__ = [
-    "CacheService",
     "FlightService",
     "FlightStatistics",
 ]

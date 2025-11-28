@@ -42,19 +42,18 @@ class Settings(BaseSettings):
         cors_origins: Liste des origines autorisées pour CORS
     """
     
-    # API Aviationstack
-    aviationstack_api_key: str  # OBLIGATOIRE
-    aviationstack_base_url: str = "http://api.aviationstack.com/v1"
+    # API Aviationstack (via Gateway)
     aviationstack_timeout: int = 30
+
+    # Gateway (centralise tous les appels Aviationstack)
+    # Le Gateway gère: rate limiting, cache, circuit breaker, coalescing
+    gateway_url: str = "http://gateway:8004"
     
-    # MongoDB
+    # MongoDB (utilisé uniquement pour le stockage historique des vols)
     mongodb_url: str = "mongodb://localhost:27017"
     mongodb_database: str = "hello_mira"
     mongodb_timeout: int = 5000
-    
-    # Cache
-    cache_ttl: int = 300  # 5 minutes
-    
+
     # FastAPI
     app_name: str = "Hello Mira - Airport Service"
     app_version: str = "1.0.0"
@@ -92,15 +91,13 @@ class Settings(BaseSettings):
     
     def validate_config(self) -> dict[str, bool]:
         """Valide la configuration et retourne les résultats.
-        
+
         Returns:
             dict: Dictionnaire avec les résultats de validation
         """
         checks = {
-            "aviationstack_api_key_present": bool(self.aviationstack_api_key),
-            "aviationstack_api_key_valid_format": len(self.aviationstack_api_key) == 32,  # ← CHANGE
+            "gateway_url_present": bool(self.gateway_url),
             "mongodb_url_present": bool(self.mongodb_url),
-            "cache_ttl_positive": self.cache_ttl > 0,
         }
         return checks
 

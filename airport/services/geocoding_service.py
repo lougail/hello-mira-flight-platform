@@ -14,10 +14,12 @@ Note : Nominatim a une politique d'usage équitable :
 
 import math
 import logging
+import time
 from typing import Optional, Tuple
 import httpx
 
 from config.settings import settings
+from monitoring.metrics import geocoding_calls, geocoding_latency, distance_calculations
 
 logger = logging.getLogger(__name__)
 
@@ -88,8 +90,12 @@ class GeocodingService:
             math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
         )
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        
+
         distance = R * c
+
+        # Metrics: comptabilise le calcul de distance
+        distance_calculations.inc()
+
         return distance
     
     # ========================================================================
@@ -99,15 +105,15 @@ class GeocodingService:
     async def geocode_address(self, address: str) -> Optional[Tuple[float, float]]:
         """
         Convertit une adresse en coordonnées GPS.
-        
+
         Utilise l'API Nominatim d'OpenStreetMap (gratuite, sans clé).
-        
+
         Args:
             address: Adresse à géocoder (ex: "Lille, France", "10 rue de Rivoli Paris")
-            
+
         Returns:
             Tuple (latitude, longitude) ou None si non trouvé
-            
+
         Example:
             >>> coords = await geocoding.geocode_address("Lille, France")
             >>> if coords:
@@ -116,18 +122,19 @@ class GeocodingService:
             ...     print("Adresse non trouvée")
         """
         logger.info(f"Géocodage de l'adresse : {address}")
-        
+        start_time = time.time()
+
         params = {
             "q": address,
             "format": "json",
             "limit": 1,
             "addressdetails": 1  # Ajoute des détails sur l'adresse
         }
-        
+
         headers = {
             "User-Agent": self.user_agent
         }
-        
+
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(
@@ -136,33 +143,44 @@ class GeocodingService:
                     headers=headers
                 )
                 response.raise_for_status()
-                
+
                 data = response.json()
-                
+
+                # Metrics: enregistre la latence
+                latency = time.time() - start_time
+                geocoding_latency.observe(latency)
+
                 if not data or len(data) == 0:
                     logger.warning(f"Adresse non trouvée : {address}")
+                    geocoding_calls.labels(status="not_found").inc()
                     return None
-                
+
                 result = data[0]
                 lat = float(result["lat"])
                 lon = float(result["lon"])
-                
+
                 # Log avec le nom du lieu trouvé
                 display_name = result.get("display_name", "Unknown")
                 logger.info(
                     f"Adresse géocodée : {display_name} → ({lat:.4f}, {lon:.4f})"
                 )
-                
+
+                # Metrics: geocodage reussi
+                geocoding_calls.labels(status="success").inc()
+
                 return (lat, lon)
-                
+
         except httpx.HTTPStatusError as e:
             logger.error(f"Erreur HTTP lors du géocodage ({e.response.status_code}): {e}")
+            geocoding_calls.labels(status="error").inc()
             return None
         except httpx.RequestError as e:
             logger.error(f"Erreur réseau lors du géocodage : {e}")
+            geocoding_calls.labels(status="error").inc()
             return None
         except Exception as e:
             logger.error(f"Erreur inattendue lors du géocodage : {e}")
+            geocoding_calls.labels(status="error").inc()
             return None
     
     def validate_coordinates(self, latitude: float, longitude: float) -> bool:
