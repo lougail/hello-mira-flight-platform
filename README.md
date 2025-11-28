@@ -10,6 +10,15 @@ Architecture moderne combinant FastAPI, MongoDB, LangGraph et Mistral AI pour fo
 
 ### Fonctionnalités
 
+**API Gateway (Port 8004) :**
+
+- ✅ **Point d'entrée unique** vers l'API Aviationstack
+- ✅ **Cache MongoDB** avec TTL de 300 secondes (5 minutes)
+- ✅ **Rate Limiter** : Gestion du quota 10,000 appels/mois
+- ✅ **Circuit Breaker** : Protection contre les pannes (5 échecs → ouverture)
+- ✅ **Request Coalescing** : Fusion des requêtes identiques simultanées (~73%)
+- ✅ **Métriques Prometheus** : Cache hits/misses, API calls, état circuit breaker
+
 **Microservice Airport (Port 8001) :**
 
 - ✅ Recherche d'aéroport par code IATA
@@ -33,16 +42,23 @@ Architecture moderne combinant FastAPI, MongoDB, LangGraph et Mistral AI pour fo
 - ✅ **Multi-langue automatique** (FR/EN/ES...) - Détecte la langue et répond dans la même
 - ✅ **Enrichissement données vol** avec pays de destination (arrival_country)
 
-**Optimisations :**
+**Frontend Streamlit (Port 8501) :**
 
-- ✅ **Cache MongoDB** avec TTL de 300 secondes (5 minutes) - Hit rate 63-65%
-- ✅ **Request Coalescing** : Fusion des requêtes identiques simultanées - ~27% des requêtes
+- ✅ Interface conversationnelle avec l'Assistant IA
+- ✅ **Authentification Supabase** (email/password)
+- ✅ Affichage des réponses formatées avec données structurées
+- ✅ Gestion de session utilisateur
+
+**Optimisations (via Gateway) :**
+
+- ✅ **Cache MongoDB** avec TTL de 300 secondes (5 minutes) - Hit rate 50-75%
+- ✅ **Request Coalescing** : Fusion des requêtes identiques simultanées - ~73%
 - ✅ **Économie globale** : ~70% de réduction d'appels API (cache + coalescing combinés)
 - ✅ **Asynchronisme complet** : httpx.AsyncClient, async/await partout
 - ✅ **Historique persistant** avec accumulation progressive
 - ✅ **Index MongoDB optimisés** (TTL + composite unique)
 
-**Monitoring (6 services Docker) :**
+**Monitoring (8 services Docker) :**
 
 - ✅ **Prometheus** (port 9090) : Collecte de métriques custom (cache, coalescing, latency)
 - ✅ **Grafana** (port 3000) : Dashboard avec 19 panels de monitoring temps réel
@@ -245,6 +261,25 @@ hello-mira-flight-platform/
 │       ├── airport_tools.py          # 5 outils LangGraph aéroports
 │       └── flight_tools.py           # 2 outils LangGraph vols
 │
+├── gateway/                          # API Gateway (port 8004)
+│   ├── __init__.py
+│   ├── main.py                       # Point d'entrée FastAPI (360 lignes)
+│   ├── config.py                     # Configuration Pydantic
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── cache.py                      # Cache MongoDB (TTL 300s)
+│   ├── rate_limiter.py               # Rate limiting (10K/mois)
+│   ├── circuit_breaker.py            # Circuit breaker (5 échecs → open)
+│   ├── request_coalescer.py          # Coalescing requêtes simultanées
+│   └── monitoring/
+│       ├── __init__.py
+│       └── metrics.py                # Métriques Prometheus custom
+│
+├── frontend/                         # Frontend Streamlit (port 8501)
+│   ├── app.py                        # Application Streamlit
+│   ├── Dockerfile
+│   └── requirements.txt
+│
 ├── monitoring/                       # Infrastructure Monitoring
 │   ├── grafana/
 │   │   ├── dashboards/
@@ -275,7 +310,7 @@ hello-mira-flight-platform/
 ├── CLAUDE.md                         # Instructions pour Claude
 ├── PROJECT_STATUS.md                 # État détaillé du projet
 ├── pytest.ini                        # Configuration pytest
-├── docker-compose.yml                # Orchestration 6 services
+├── docker-compose.yml                # Orchestration 8 services
 ├── requests.http                     # 52 exemples de requêtes HTTP
 ├── .env.example                      # Template variables d'environnement
 ├── .env                              # Secrets (non versionné, .gitignore)
@@ -333,27 +368,33 @@ MISTRAL_API_KEY=votre_cle_mistral_ici
 docker-compose up -d
 ```
 
-Les **6 services** démarrent dans cet ordre :
+Les **8 services** démarrent dans cet ordre :
 
 1. **MongoDB** (avec health check) - port 27017
-2. **Airport Service** (attend MongoDB) - port 8001
-3. **Flight Service** (attend MongoDB) - port 8002
-4. **Assistant Service** (attend Airport + Flight) - port 8003
-5. **Prometheus** (attend les microservices) - port 9090
-6. **Grafana** (attend Prometheus) - port 3000
+2. **Gateway** (attend MongoDB) - port 8004
+3. **Airport Service** (attend Gateway) - port 8001
+4. **Flight Service** (attend Gateway) - port 8002
+5. **Assistant Service** (attend Airport + Flight) - port 8003
+6. **Frontend Streamlit** (attend Assistant) - port 8501
+7. **Prometheus** (attend les microservices) - port 9090
+8. **Grafana** (attend Prometheus) - port 3000
 
 ### 4. Vérifier l'État
 
 ```bash
-# Vérifier que tous les 6 services sont UP (healthy)
+# Vérifier que tous les 8 services sont UP (healthy)
 docker-compose ps
+
+# Health check Gateway (principal)
+curl http://localhost:8004/health
 
 # Health checks des microservices
 curl http://localhost:8001/api/v1/health  # Airport
 curl http://localhost:8002/api/v1/health  # Flight
 curl http://localhost:8003/api/v1/health  # Assistant
 
-# Vérifier Prometheus et Grafana
+# Vérifier Frontend, Prometheus et Grafana
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8501  # Frontend (200)
 curl http://localhost:9090/-/healthy       # Prometheus
 curl http://localhost:3000/api/health      # Grafana
 
@@ -365,6 +406,8 @@ docker-compose logs -f assistant
 
 | Service | URL | Description |
 |---------|-----|-------------|
+| **Frontend** | <http://localhost:8501> | Interface conversationnelle Streamlit |
+| **Gateway API** | <http://localhost:8004/docs> | Documentation Swagger Gateway |
 | **Airport API** | <http://localhost:8001/docs> | Documentation Swagger Airport |
 | **Flight API** | <http://localhost:8002/docs> | Documentation Swagger Flight |
 | **Assistant API** | <http://localhost:8003/docs> | Documentation Swagger Assistant |
@@ -452,13 +495,54 @@ Chaque microservice définit des valeurs par défaut dans `*/config/settings.py`
 
 ---
 
-**Note** : Ce README documente l'état du projet au 27 novembre 2024. Toutes les informations sont basées sur le code réel du repository.
+**Note** : Ce README documente l'état du projet au 28 novembre 2025. Toutes les informations sont basées sur le code réel du repository.
 
 ---
 
 ## 📡 Endpoints API
 
 Tous les endpoints sont documentés automatiquement via FastAPI Swagger UI.
+
+### Gateway (Port 8004)
+
+**Base URL** : `http://localhost:8004`
+**Documentation** : <http://localhost:8004/docs>
+
+Le Gateway est le **point d'entrée unique** vers l'API Aviationstack. Il centralise cache, rate limiting et circuit breaker.
+
+#### Proxy Aviationstack
+
+| Endpoint | Méthode | Description | Paramètres |
+|----------|---------|-------------|------------|
+| `/airports` | GET | Proxy vers Aviationstack airports | `iata_code`, `search`, `country_iso2`, `limit` |
+| `/flights` | GET | Proxy vers Aviationstack flights | `flight_iata`, `dep_iata`, `arr_iata`, `airline_iata`, `flight_status`, `flight_date`, `limit` |
+
+#### Monitoring & Stats
+
+| Endpoint | Méthode | Description |
+|----------|---------|-------------|
+| `/health` | GET | État de santé (rate limit, cache, circuit breaker) |
+| `/stats` | GET | Statistiques complètes de tous les composants |
+| `/usage` | GET | Utilisation du quota API mensuel |
+| `/metrics` | GET | Métriques Prometheus |
+
+**Exemple `/health`** :
+
+```json
+{
+  "status": "healthy",
+  "rate_limit": {
+    "month": "2025-11",
+    "used": 253,
+    "limit": 10000,
+    "remaining": 9747
+  },
+  "cache": "enabled",
+  "circuit_breaker": "closed"
+}
+```
+
+---
 
 ### Airport Service (Port 8001)
 
