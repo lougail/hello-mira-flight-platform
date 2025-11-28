@@ -24,7 +24,6 @@ class AssistantState(TypedDict):
         entities: Entités extraites du prompt
         confidence: Niveau de confiance de l'interprétation
         iteration: Compteur d'itérations ReAct (max 3)
-        pending_action: Action en attente après recherche d'aéroport
     """
 
     # Messages LangChain (pour historique conversationnel)
@@ -52,4 +51,3 @@ class AssistantState(TypedDict):
 
     # ReAct loop control
     iteration: Optional[int]
-    pending_action: Optional[str]

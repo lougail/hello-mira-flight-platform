@@ -43,10 +43,6 @@ class Settings(BaseSettings):
     # Mode debug
     debug: bool = False
 
-    # Mode DEMO : utilise des données mockées au lieu d'appeler les vrais microservices
-    # Utile pour démonstration sans quota API Aviationstack
-    demo_mode: bool = False
-
     # CORS origins (pour frontend React)
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8000"]
 

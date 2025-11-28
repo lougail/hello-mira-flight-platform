@@ -2,7 +2,6 @@
 Client HTTP asynchrone pour le microservice Airport.
 
 Encapsule tous les appels HTTP vers l'API Airport.
-Supporte le mode DEMO avec données mockées.
 """
 
 import httpx
@@ -19,25 +18,19 @@ class AirportClient:
     Attributes:
         base_url: URL de base de l'API Airport
         timeout: Timeout des requêtes HTTP (en secondes)
-        demo_mode: Si True, retourne des données mockées au lieu d'appeler l'API
     """
 
-    def __init__(self, base_url: str, timeout: int = 30, demo_mode: bool = False):
+    def __init__(self, base_url: str, timeout: int = 30):
         """
         Initialise le client Airport.
 
         Args:
             base_url: URL du microservice Airport (ex: http://airport:8001/api/v1)
             timeout: Timeout des requêtes en secondes
-            demo_mode: Active le mode démo avec données mockées
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.demo_mode = demo_mode
         self._client: Optional[httpx.AsyncClient] = None
-
-        if self.demo_mode:
-            logger.info("AirportClient initialized in DEMO MODE - using mock data")
 
     async def __aenter__(self):
         """Context manager entry."""
@@ -90,17 +83,6 @@ class AirportClient:
         Returns:
             Données de l'aéroport
         """
-        # Mode DEMO : retourner données mockées
-        if self.demo_mode:
-            from tools.mock_data import MOCK_AIRPORTS
-            airport_data = MOCK_AIRPORTS.get(iata.upper())
-            if airport_data:
-                logger.info(f"DEMO MODE: Returning mock data for airport {iata}")
-                return {"data": airport_data}
-            else:
-                logger.warning(f"DEMO MODE: No mock data for airport {iata}")
-                return {"error": f"Airport {iata} not found in mock data"}
-
         return await self._get(f"/airports/{iata.upper()}")
 
     async def search_airports_by_name(
@@ -165,19 +147,6 @@ class AirportClient:
         Returns:
             Aéroport le plus proche
         """
-        # Mode DEMO : retourner données mockées
-        if self.demo_mode:
-            from tools.mock_data import MOCK_AIRPORTS
-            # Détecte si c'est une recherche sur Lille
-            if "lille" in address.lower():
-                airport_data = MOCK_AIRPORTS.get("nearest_lille")
-                if airport_data:
-                    logger.info(f"DEMO MODE: Returning mock nearest airport for {address}")
-                    return {"data": airport_data}
-
-            logger.warning(f"DEMO MODE: No mock data for address {address}")
-            return {"error": f"No mock data for address {address}"}
-
         params = {
             "address": address,
             "country_code": country_code.upper()
@@ -201,20 +170,6 @@ class AirportClient:
         Returns:
             Liste de vols au départ
         """
-        # Mode DEMO : retourner données mockées
-        if self.demo_mode:
-            from tools.mock_data import MOCK_DEPARTURES
-            departures_data = MOCK_DEPARTURES.get(iata.upper())
-            if departures_data:
-                logger.info(f"DEMO MODE: Returning mock departures for {iata}")
-                # Applique limit et offset
-                start = offset
-                end = offset + limit
-                return {"data": departures_data[start:end], "total": len(departures_data)}
-            else:
-                logger.warning(f"DEMO MODE: No mock departures for {iata}")
-                return {"data": [], "total": 0}
-
         params = {
             "limit": limit,
             "offset": offset

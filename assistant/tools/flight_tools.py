@@ -25,7 +25,7 @@ async def get_flight_status_tool(flight_iata: str) -> dict:
     Returns:
         Statut actuel du vol avec horaires prévus, estimés, et retards
     """
-    async with FlightClient(settings.flight_api_url, settings.http_timeout, settings.demo_mode) as client:
+    async with FlightClient(settings.flight_api_url, settings.http_timeout) as client:
         return await client.get_flight_status(flight_iata)
 
 
@@ -46,5 +46,5 @@ async def get_flight_statistics_tool(
     Returns:
         Statistiques agrégées (taux de ponctualité, retards moyens, etc.)
     """
-    async with FlightClient(settings.flight_api_url, settings.http_timeout, settings.demo_mode) as client:
+    async with FlightClient(settings.flight_api_url, settings.http_timeout) as client:
         return await client.get_flight_statistics(flight_iata, start_date, end_date)

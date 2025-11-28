@@ -2,7 +2,6 @@
 Client HTTP asynchrone pour le microservice Flight.
 
 Encapsule tous les appels HTTP vers l'API Flight.
-Supporte le mode DEMO avec données mockées.
 """
 
 import httpx
@@ -19,25 +18,19 @@ class FlightClient:
     Attributes:
         base_url: URL de base de l'API Flight
         timeout: Timeout des requêtes HTTP (en secondes)
-        demo_mode: Si True, retourne des données mockées au lieu d'appeler l'API
     """
 
-    def __init__(self, base_url: str, timeout: int = 30, demo_mode: bool = False):
+    def __init__(self, base_url: str, timeout: int = 30):
         """
         Initialise le client Flight.
 
         Args:
             base_url: URL du microservice Flight (ex: http://flight:8002/api/v1)
             timeout: Timeout des requêtes en secondes
-            demo_mode: Active le mode démo avec données mockées
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.demo_mode = demo_mode
         self._client: Optional[httpx.AsyncClient] = None
-
-        if self.demo_mode:
-            logger.info("FlightClient initialized in DEMO MODE - using mock data")
 
     async def __aenter__(self):
         """Context manager entry."""
@@ -90,17 +83,6 @@ class FlightClient:
         Returns:
             Statut du vol
         """
-        # Mode DEMO : retourner données mockées
-        if self.demo_mode:
-            from tools.mock_data import MOCK_FLIGHTS
-            flight_data = MOCK_FLIGHTS.get(flight_iata.upper())
-            if flight_data:
-                logger.info(f"DEMO MODE: Returning mock data for flight {flight_iata}")
-                return {"data": flight_data}
-            else:
-                logger.warning(f"DEMO MODE: No mock data for flight {flight_iata}")
-                return {"error": f"Flight {flight_iata} not found in mock data"}
-
         return await self._get(f"/flights/{flight_iata.upper()}")
 
     async def get_flight_history(
@@ -143,17 +125,6 @@ class FlightClient:
         Returns:
             Statistiques du vol
         """
-        # Mode DEMO : retourner statistiques mockées
-        if self.demo_mode:
-            from tools.mock_data import MOCK_FLIGHT_STATISTICS
-            stats_data = MOCK_FLIGHT_STATISTICS.get(flight_iata.upper())
-            if stats_data:
-                logger.info(f"DEMO MODE: Returning mock statistics for flight {flight_iata}")
-                return {"data": stats_data}
-            else:
-                logger.warning(f"DEMO MODE: No mock statistics for flight {flight_iata}")
-                return {"error": f"Statistics for flight {flight_iata} not found in mock data"}
-
         params = {
             "start_date": start_date,
             "end_date": end_date
