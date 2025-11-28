@@ -30,6 +30,8 @@ Architecture moderne combinant FastAPI, MongoDB, LangGraph et Mistral AI pour fo
 - ✅ Interprétation d'intention en langage naturel
 - ✅ Réponse complète avec orchestration LangGraph
 - ✅ 7 outils disponibles (2 flight + 5 airport)
+- ✅ **Multi-langue automatique** (FR/EN/ES...) - Détecte la langue et répond dans la même
+- ✅ **Enrichissement données vol** avec pays de destination (arrival_country)
 
 **Optimisations :**
 
@@ -40,11 +42,12 @@ Architecture moderne combinant FastAPI, MongoDB, LangGraph et Mistral AI pour fo
 - ✅ **Historique persistant** avec accumulation progressive
 - ✅ **Index MongoDB optimisés** (TTL + composite unique)
 
-**Monitoring :**
+**Monitoring (6 services Docker) :**
 
-- ✅ **Prometheus** : Collecte de métriques custom (cache, coalescing, latency)
-- ✅ **Grafana** : Dashboard avec 19 panels de monitoring temps réel
-- ✅ **Tests e2e** : 16/16 tests passent - Validation complète de l'orchestration
+- ✅ **Prometheus** (port 9090) : Collecte de métriques custom (cache, coalescing, latency)
+- ✅ **Grafana** (port 3000) : Dashboard avec 19 panels de monitoring temps réel
+- ✅ **Tests e2e** : 16/16 tests passent (100%) - Validation complète de l'orchestration
+- ✅ **77 commits** : Historique complet du développement
 
 ---
 
@@ -335,33 +338,43 @@ MISTRAL_API_KEY=votre_cle_mistral_ici
 docker-compose up -d
 ```
 
-Les services démarrent dans cet ordre :
+Les **6 services** démarrent dans cet ordre :
 
-1. MongoDB (avec health check)
-2. Airport Service (attend MongoDB)
-3. Flight Service (attend MongoDB)
-4. Assistant Service (attend Airport + Flight)
+1. **MongoDB** (avec health check) - port 27017
+2. **Airport Service** (attend MongoDB) - port 8001
+3. **Flight Service** (attend MongoDB) - port 8002
+4. **Assistant Service** (attend Airport + Flight) - port 8003
+5. **Prometheus** (attend les microservices) - port 9090
+6. **Grafana** (attend Prometheus) - port 3000
 
 ### 4. Vérifier l'État
 
 ```bash
-# Vérifier que tous les services sont UP
+# Vérifier que tous les 6 services sont UP (healthy)
 docker-compose ps
 
-# Health checks
+# Health checks des microservices
 curl http://localhost:8001/api/v1/health  # Airport
 curl http://localhost:8002/api/v1/health  # Flight
 curl http://localhost:8003/api/v1/health  # Assistant
+
+# Vérifier Prometheus et Grafana
+curl http://localhost:9090/-/healthy       # Prometheus
+curl http://localhost:3000/api/health      # Grafana
 
 # Logs en temps réel
 docker-compose logs -f assistant
 ```
 
-### 5. Accéder à la Documentation
+### 5. Accéder aux Interfaces
 
-- **Airport API** : <http://localhost:8001/docs>
-- **Flight API** : <http://localhost:8002/docs>
-- **Assistant API** : <http://localhost:8003/docs>
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Airport API** | <http://localhost:8001/docs> | Documentation Swagger Airport |
+| **Flight API** | <http://localhost:8002/docs> | Documentation Swagger Flight |
+| **Assistant API** | <http://localhost:8003/docs> | Documentation Swagger Assistant |
+| **Grafana** | <http://localhost:3000> | Dashboard monitoring (admin/admin) |
+| **Prometheus** | <http://localhost:9090> | Métriques brutes |
 
 ---
 
@@ -446,7 +459,7 @@ Chaque microservice définit des valeurs par défaut dans `*/config/settings.py`
 
 ---
 
-**Note** : Ce README documente l'état du projet au 27 novembre 2025. Toutes les informations sont basées sur le code réel du repository.
+**Note** : Ce README documente l'état du projet au 27 novembre 2024. Toutes les informations sont basées sur le code réel du repository.
 
 ---
 
@@ -514,12 +527,21 @@ Tous les endpoints sont documentés automatiquement via FastAPI Swagger UI.
 | `/assistant/interpret` | POST | Détecte intention (pas d'exécution) | `{"prompt": "votre question"}` |
 | `/assistant/answer` | POST | Orchestration complète (LangGraph) | `{"prompt": "votre question"}` |
 
-**Exemples de prompts** :
+**Exemples de prompts (multi-langue)** :
+
+**Français** :
 
 - "Je suis sur le vol AF282, à quelle heure j'arrive ?"
 - "Quels vols partent de CDG cet après-midi ?"
 - "Trouve-moi l'aéroport le plus proche de Lille"
-- "Donne-moi les statistiques du vol BA117"
+- "Quels vols vont aux États-Unis depuis CDG ?"
+
+**English** :
+
+- "What is the status of flight AF282?"
+- "Which flights depart from CDG this afternoon?"
+- "Find the nearest airport to Paris"
+- "Show me flights to Japan from CDG"
 
 **Format réponse `/assistant/answer`** :
 
