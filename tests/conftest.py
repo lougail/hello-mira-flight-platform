@@ -16,6 +16,18 @@ from typing import Dict, AsyncGenerator
 # ============================================================================
 
 @pytest_asyncio.fixture
+async def gateway_client() -> AsyncGenerator[AsyncClient, None]:
+    """
+    Client HTTP async pour le Gateway.
+
+    Returns:
+        AsyncClient configuré pour http://localhost:8004
+    """
+    async with AsyncClient(base_url="http://localhost:8004", timeout=10.0) as client:
+        yield client
+
+
+@pytest_asyncio.fixture
 async def airport_client() -> AsyncGenerator[AsyncClient, None]:
     """
     Client HTTP async pour le service Airport.
@@ -57,12 +69,14 @@ async def all_services() -> AsyncGenerator[Dict[str, AsyncClient], None]:
     Tous les clients HTTP pour tests e2e complets.
 
     Returns:
-        Dict avec airport, flight, assistant clients
+        Dict avec gateway, airport, flight, assistant clients
     """
-    async with AsyncClient(base_url="http://localhost:8001", timeout=10.0) as airport, \
+    async with AsyncClient(base_url="http://localhost:8004", timeout=10.0) as gateway, \
+               AsyncClient(base_url="http://localhost:8001", timeout=10.0) as airport, \
                AsyncClient(base_url="http://localhost:8002", timeout=10.0) as flight, \
                AsyncClient(base_url="http://localhost:8003", timeout=30.0) as assistant:
         yield {
+            "gateway": gateway,
             "airport": airport,
             "flight": flight,
             "assistant": assistant
@@ -85,6 +99,7 @@ async def check_services_running():
         RuntimeError: Si un service n'est pas accessible
     """
     services = {
+        "gateway": "http://localhost:8004/health",
         "airport": "http://localhost:8001/api/v1/health",
         "flight": "http://localhost:8002/api/v1/health",
         "assistant": "http://localhost:8003/api/v1/health"
