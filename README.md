@@ -62,7 +62,7 @@ Architecture moderne combinant FastAPI, MongoDB, LangGraph et Mistral AI pour fo
 
 - ✅ **Prometheus** (port 9090) : Collecte de métriques custom (cache, coalescing, latency)
 - ✅ **Grafana** (port 3000) : Dashboard avec 19 panels de monitoring temps réel
-- ✅ **Tests e2e** : 16/16 tests passent (100%) - Validation complète de l'orchestration
+- ✅ **Tests e2e** : 27 tests passent (100%) - Validation complète Gateway + microservices + orchestration
 - ✅ **77 commits** : Historique complet du développement
 
 ---
@@ -295,9 +295,10 @@ hello-mira-flight-platform/
 │   ├── __init__.py
 │   ├── conftest.py                   # Fixtures globales e2e
 │   ├── README.md                     # Documentation tests (Best Practices 2025)
-│   ├── e2e/                          # Tests end-to-end
+│   ├── e2e/                          # Tests end-to-end (27 tests)
 │   │   ├── __init__.py
 │   │   ├── conftest.py               # Scénarios e2e
+│   │   ├── test_gateway.py           # 11 tests Gateway (cache, coalescing, metrics)
 │   │   ├── test_airport_service.py   # 4 tests Airport
 │   │   ├── test_assistant_orchestration.py  # 6 tests Assistant
 │   │   └── test_flight_service.py    # 6 tests Flight
@@ -322,9 +323,9 @@ hello-mira-flight-platform/
 
 | Collection | Type | Description | Index |
 |------------|------|-------------|-------|
-| `airport_cache` | Cache | Aéroports consultés | TTL sur `expires_at` (300s) |
-| `flight_cache` | Cache | Vols consultés (temps réel) | TTL sur `expires_at` (300s) |
-| `flights` | Persistant | Historique complet des vols | Composite unique `(flight_iata, flight_date)` |
+| `gateway_cache` | Cache | Cache unifié Gateway (airports, flights) | TTL sur `expires_at` (300s) |
+| `api_rate_limit` | Compteur | Quota API Aviationstack (10K/mois) | `_id` unique par mois |
+| `flights` | Persistant | Historique complet des vols (1479+ docs) | `flight_iata`, `flight_date`, composite unique |
 
 ---
 
@@ -585,7 +586,6 @@ Le Gateway est le **point d'entrée unique** vers l'API Aviationstack. Il centra
 | `/flights/{flight_iata}/history` | GET | Historique sur période | `flight_iata` (Code vol), `start_date` (YYYY-MM-DD), `end_date` (YYYY-MM-DD) |
 | `/flights/{flight_iata}/statistics` | GET | Statistiques agrégées | `flight_iata` (Code vol), `start_date` (YYYY-MM-DD), `end_date` (YYYY-MM-DD) |
 | `/health` | GET | Liveness probe (toujours 200 OK) | - |
-| `/health/ready` | GET | Readiness probe (vérifie dépendances) | - |
 
 **Limites** :
 
@@ -601,6 +601,7 @@ Le Gateway est le **point d'entrée unique** vers l'API Aviationstack. Il centra
 
 | Endpoint | Méthode | Description | Body |
 |----------|---------|-------------|------|
+| `/health` | GET | Liveness probe (toujours 200 OK) | - |
 | `/assistant/interpret` | POST | Détecte intention (pas d'exécution) | `{"prompt": "votre question"}` |
 | `/assistant/answer` | POST | Orchestration complète (LangGraph) | `{"prompt": "votre question"}` |
 
@@ -923,31 +924,58 @@ Content-Type: application/json
 
 ## 📊 Monitoring & Métriques
 
-Le projet intègre un stack de monitoring complet basé sur **Prometheus** et **Grafana** pour observer les performances en temps réel et valider les optimisations (cache, coalescing).
+Le projet intègre un stack de monitoring complet basé sur **Prometheus** et **Grafana** pour observer les performances en temps réel et valider les optimisations (cache, coalescing, circuit breaker).
 
 ### Architecture Monitoring
 
 ```text
-┌─────────────────┐
-│   Microservices │  (Airport, Flight, Assistant)
-│   Port 8001-8003│
-│   /metrics      │  ← prometheus-fastapi-instrumentator
-└────────┬────────┘
-         │ HTTP scrape (10s)
-         ▼
-┌─────────────────┐
-│   Prometheus    │  Port 9090
-│   - Collecte    │  ← Stockage Time Series Database
-│   - Agrégation  │
-└────────┬────────┘
-         │ PromQL queries
-         ▼
-┌─────────────────┐
-│     Grafana     │  Port 3000
-│   - Dashboard   │  ← Visualisation
-│   - 19 panels   │
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         GRAFANA                                  │
+│                        Port 3000                                 │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │              Dashboard: Hello Mira Metrics              │     │
+│  │                                                         │     │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐     │     │
+│  │  │ Cache Hit    │ │ API Calls    │ │ Rate Limit   │     │     │
+│  │  │ Rate: 65%    │ │ /min: 12     │ │ Used: 1234   │     │     │
+│  │  └──────────────┘ └──────────────┘ └──────────────┘     │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│                            │ PromQL Queries                      │
+└────────────────────────────┼─────────────────────────────────────┘
+                             │
+┌────────────────────────────┼────────────────────────────────────┐
+│                       PROMETHEUS                                 │
+│                        Port 9090                                 │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │                   Time Series DB                        │     │
+│  │                                                         │     │
+│  │  gateway_cache_hits_total{endpoint="airports"} 89       │     │
+│  │  gateway_cache_misses_total{endpoint="airports"} 34     │     │
+│  │  gateway_api_calls_total{endpoint="airports"} 34        │     │
+│  │  gateway_rate_limit_used 1234                           │     │
+│  │  http_request_duration_seconds_bucket{...}              │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│                            │                                     │
+│                            │ Scrape /metrics every 10s           │
+└────────────────────────────┼─────────────────────────────────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        │                    │                    │
+        ▼                    ▼                    ▼
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│   Gateway    │    │   Airport    │    │   Flight     │
+│   :8004      │    │   :8001      │    │   :8002      │
+│  /metrics    │    │  /metrics    │    │  /metrics    │
+│              │    │              │    │              │
+│  Source des  │    │  HTTP only   │    │  HTTP only   │
+│  métriques   │    │              │    │              │
+│  API/Cache   │    │              │    │              │
+└──────────────┘    └──────────────┘    └──────────────┘
 ```
+
+**Point clé** : Le **Gateway (port 8004)** centralise toutes les métriques liées à l'API Aviationstack (cache, rate limiting, circuit breaker, coalescing). Les autres services exposent uniquement leurs métriques HTTP.
 
 ### Accès aux Dashboards
 
@@ -965,7 +993,23 @@ Le projet intègre un stack de monitoring complet basé sur **Prometheus** et **
 
 ### Métriques Collectées
 
-#### Métriques Standard (prometheus-fastapi-instrumentator)
+#### Métriques Gateway (Custom) - Port 8004
+
+Le Gateway expose les métriques essentielles pour le monitoring des optimisations :
+
+| Métrique | Type | Description | Labels |
+|----------|------|-------------|--------|
+| `gateway_cache_hits_total` | Counter | Nombre de cache HITs | `endpoint` |
+| `gateway_cache_misses_total` | Counter | Nombre de cache MISSes | `endpoint` |
+| `gateway_api_calls_total` | Counter | Appels réels à l'API Aviationstack | `endpoint`, `status` |
+| `gateway_coalesced_requests_total` | Counter | Requêtes coalescées (fusionnées) | `endpoint` |
+| `gateway_circuit_breaker_state` | Gauge | État circuit (0=closed, 1=half_open, 2=open) | - |
+| `gateway_rate_limit_used` | Gauge | Appels API utilisés ce mois | - |
+| `gateway_rate_limit_remaining` | Gauge | Appels API restants ce mois | - |
+
+#### Métriques HTTP Standard (prometheus-fastapi-instrumentator)
+
+Tous les services exposent ces métriques HTTP via `/metrics` :
 
 | Métrique | Type | Description | Labels |
 |----------|------|-------------|--------|
@@ -973,142 +1017,19 @@ Le projet intègre un stack de monitoring complet basé sur **Prometheus** et **
 | `http_request_duration_seconds_count` | Counter | Nombre total de requêtes | `handler`, `method`, `status` |
 | `http_requests_inprogress` | Gauge | Requêtes en cours | `handler`, `method` |
 
-#### Métriques Custom Airport/Flight
-
-| Métrique | Type | Description | Labels |
-|----------|------|-------------|--------|
-| `cache_hits_total` | Counter | Nombre de cache HITs | `service`, `cache_type` |
-| `cache_misses_total` | Counter | Nombre de cache MISSes | `service`, `cache_type` |
-| `coalesced_requests_total` | Counter | Requêtes coalescées (dupliquées évitées) | `service`, `endpoint` |
-| `aviationstack_api_calls_total` | Counter | Appels réels à l'API Aviationstack | `service`, `endpoint` |
-
-### Panels Grafana
-
-Le dashboard contient **19 panels** organisés en **5 sections** :
-
-#### Section 1 : ⚡ MÉTRIQUES TEMPS RÉEL (5 dernières minutes)
-
-4 panels avec fenêtre glissante 5m :
-
-| Panel | Type | Métrique | Seuils |
-|-------|------|----------|--------|
-| **🎯 Cache Hit Rate - Airport (5m)** | Gauge | `increase(cache_hits)[5m] / (hits+misses)` | Rouge <50%, Jaune <70%, Vert ≥70% |
-| **🎯 Cache Hit Rate - Flight (5m)** | Gauge | `increase(cache_hits)[5m] / (hits+misses)` | Rouge <50%, Jaune <70%, Vert ≥70% |
-| **🔗 Taux de Coalescing (5m)** | Gauge | `increase(coalesced)[5m] / (coalesced+api_calls)` | Rouge <50%, Jaune <70%, Vert ≥70% |
-| **📡 API Calls (5m)** | Timeseries | `rate(aviationstack_api_calls_total)[5m] * 60` | Affiche appels/min par service |
-
-#### Section 2 : 📊 MÉTRIQUES CUMULATIVES (depuis démarrage)
-
-7 panels avec valeurs totales :
-
-| Panel | Type | Métrique | Description |
-|-------|------|----------|-------------|
-| **🎯 Cache Hit Rate - Airport (Total)** | Gauge | `sum(cache_hits) / (hits+misses)` | Taux cumulé depuis démarrage |
-| **🎯 Cache Hit Rate - Flight (Total)** | Gauge | `sum(cache_hits) / (hits+misses)` | Taux cumulé depuis démarrage |
-| **🔗 Taux de Coalescing (Total)** | Gauge | `sum(coalesced) / (coalesced+api_calls)` | Taux cumulé depuis démarrage |
-| **📡 Total API Calls** | Stat | `sum(aviationstack_api_calls_total)` | Nombre total d'appels API |
-| **Total Requêtes Coalescées** | Stat | `sum(coalesced_requests_total)` | Économie via coalescing |
-| **Total Cache Hits** | Stat | `sum(cache_hits_total)` | Économie via cache |
-| **Économie Totale** | Bar Gauge | Coalescées + Cache Hits vs API Calls | Visualisation comparative |
-
-#### Section 3 : 📊 PERFORMANCE DES APIS
-
-2 panels de performance :
-
-| Panel | Type | Métrique | Description |
-|-------|------|----------|-------------|
-| **⚡ Latence des APIs (p50 / p95)** | Timeseries | `histogram_quantile(0.50/0.95, ...)` | Latence médiane et 95e percentile |
-| **📈 Requêtes HTTP par seconde** | Timeseries | `sum(rate(http_request_duration_seconds_count)[1m])` | Volume de requêtes par service |
-
-#### Section 4 : 🤖 ASSISTANT IA CONVERSATIONNEL
-
-3 panels dédiés à l'assistant :
-
-| Panel | Type | Métrique | Description |
-|-------|------|----------|-------------|
-| **✅ Taux de Succès Assistant IA** | Pie Chart | `http_request_duration_seconds_count{status}` | Distribution 2xx / 4xx / 5xx |
-| **⚡ Latence Assistant p50 (5m)** | Gauge | `histogram_quantile(0.50, ...)` | Latence médiane assistant |
-| **🤖 Total Requêtes Assistant IA** | Stat | `sum(http_request_duration_seconds_count{job="assistant"})` | Volume total requêtes |
-
-#### Section 5 : 🌐 CONSOMMATION API AVIATIONSTACK (QUOTA)
-
-3 panels de monitoring quota :
-
-| Panel | Type | Métrique | Description |
-|-------|------|----------|-------------|
-| **📞 Total Appels API Aviationstack** | Stat | `sum(aviationstack_api_calls_total)` | Suivi quota mensuel |
-| **📊 Appels API par minute** | Timeseries | `rate(aviationstack_api_calls_total)[1m] * 60` | Tendance consommation |
-| **🍩 Répartition par Endpoint** | Pie Chart | `sum by (endpoint) (aviationstack_api_calls_total)` | Distribution airports/flights |
-
-### Script de Génération de Trafic
-
-Un script bash est fourni pour tester le monitoring avec un trafic réaliste :
-
-```bash
-# Générer ~300 requêtes mixtes (Airport, Flight, Assistant)
-./scripts/generate_traffic_intensive.sh
-
-# Avec paramètre custom (100 iterations = ~600 requêtes)
-./scripts/generate_traffic_intensive.sh 100
-```
-
-**Le script :**
-
-1. **Récupère des données réelles** depuis l'API (50 vols de CDG)
-2. **Sépare les données** de manière déterministe :
-   - Aéroports 1-10 : Trafic mixte normal
-   - Aéroport 11 : Test coalescing (cache MISS garanti)
-   - Réutilisation aéroport 11 : Test cache (cache HIT garanti)
-3. **Génère du trafic mixte** :
-   - 40% Airport (recherche aéroports, départs/arrivées)
-   - 30% Flight (statut vols réels)
-   - 30% Assistant (prompts en français avec vols réels)
-4. **Teste le coalescing** : 10 requêtes simultanées identiques
-5. **Teste le cache** : 20 requêtes séquentielles identiques
-
-**Sortie attendue** :
-
-```text
-📊 Statistiques :
-  - Total requêtes : 333
-  - Airport : 237 (71%)
-  - Flight : 48 (14%)
-  - Assistant : 48 (14%)
-
-📈 Prochaines étapes :
-  1. Attends 15s que Prometheus scrape les données
-  2. Rafraîchis Grafana : http://localhost:3000
-  3. Vérifie les panels
-```
-
-### Résultats Validés (Test Réel)
-
-Après exécution du script sur une plateforme propre :
-
-| Métrique | Valeur | Détail |
-|----------|--------|--------|
-| **Cache Hit Rate Airport** | **63.6%** | 21 hits / 33 requêtes |
-| **Cache Hit Rate Flight** | **65.0%** | 13 hits / 20 requêtes |
-| **Taux de Coalescing** | **27.3%** | 9 coalescées / 33 requêtes |
-| **Total Cache Hits** | **48** | Cumul Airport + Flight |
-| **Total Requêtes Coalescées** | **9** | Requêtes dupliquées évitées |
-| **API Calls économisés** | **~70%** | Via cache + coalescing |
-| **Assistant Success Rate** | **100%** | 24/24 requêtes réussies |
-| **API Calls Réels Aviationstack** | **24** | Sur ~81 requêtes totales |
-
-**Interprétation** :
-
-- ✅ Cache hit rate >60% démontre l'efficacité du cache MongoDB avec TTL 300s
-- ✅ Coalescing rate 27% prouve que les requêtes simultanées sont bien fusionnées
-- ✅ Économie globale ~70% d'appels API valide l'architecture d'optimisation
-- ✅ Assistant 100% success rate confirme la robustesse de l'orchestration LangGraph
-
 ### Configuration Prometheus
 
-**Scrape interval** : 10 secondes pour Airport/Flight/Assistant
+**Fichier** : `monitoring/prometheus.yml`
 
 ```yaml
 scrape_configs:
+  # Gateway - Source unique des métriques API Aviationstack
+  - job_name: 'gateway'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['gateway:8004']
+
+  # Microservices - Métriques HTTP uniquement
   - job_name: 'airport'
     scrape_interval: 10s
     static_configs:
@@ -1130,20 +1051,40 @@ scrape_configs:
 ### Requêtes PromQL Utiles
 
 ```promql
-# Taux de succès HTTP
-sum(http_request_duration_seconds_count{status="2xx"})
-/ sum(http_request_duration_seconds_count)
+# Cache hit rate Gateway
+sum(gateway_cache_hits_total)
+/ (sum(gateway_cache_hits_total) + sum(gateway_cache_misses_total))
 
-# Cache hit rate
-sum(cache_hits_total) / (sum(cache_hits_total) + sum(cache_misses_total))
+# Taux de coalescing
+sum(gateway_coalesced_requests_total)
+/ (sum(gateway_coalesced_requests_total) + sum(gateway_api_calls_total))
 
-# Latence p95
+# Quota API restant
+gateway_rate_limit_remaining
+
+# État circuit breaker (0=closed/OK, 1=half_open, 2=open/problème)
+gateway_circuit_breaker_state
+
+# Latence p95 par service
 histogram_quantile(0.95,
-  sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+  sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job)
 )
 
-# Volume de coalescing sur 5 minutes
-increase(coalesced_requests_total[5m])
+# Requêtes HTTP par seconde
+sum(rate(http_request_duration_seconds_count[1m])) by (job)
+```
+
+### Vérifier les Métriques
+
+```bash
+# Métriques Gateway (cache, coalescing, rate limit)
+curl http://localhost:8004/metrics | grep gateway_
+
+# Statistiques complètes Gateway (JSON formaté)
+curl http://localhost:8004/stats | jq .
+
+# Vérifier targets Prometheus
+curl http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
 ```
 
 ### Reset des Métriques
@@ -1172,7 +1113,7 @@ Le projet intègre une suite de tests complète pour valider le comportement des
 
 ### Tests End-to-End (e2e)
 
-**Statut** : ✅ **16/16 tests passent** (100% success rate)
+**Statut** : ✅ **27 tests passent** (100% success rate)
 
 ```bash
 # Lancer tous les tests e2e
@@ -1186,9 +1127,26 @@ pytest tests/e2e/ -v
 
 | Service | Tests | Fichier | Scénarios |
 |---------|-------|---------|-----------|
-| **Airport** | 4 tests | `test_airport_service.py` | IATA, coords, address, departures |
-| **Flight** | 6 tests | `test_flight_service.py` | Status, history, statistics |
+| **Gateway** | 11 tests | `test_gateway.py` | Health, cache, coalescing, metrics, rate limit |
+| **Airport** | 4 tests | `test_airport_service.py` | IATA, coords, cache |
+| **Flight** | 6 tests | `test_flight_service.py` | Status, history, statistics, cache, coalescing |
 | **Assistant** | 6 tests | `test_assistant_orchestration.py` | 7 outils + orchestration LangGraph |
+
+#### Tests Gateway (Optimisations)
+
+Les tests valident les **patterns d'optimisation** du Gateway :
+
+- `test_health_check` : Health check du Gateway
+- `test_cache_hit` : Cache MongoDB fonctionne (TTL 300s)
+- `test_cache_miss` : Appel API sur cache miss
+- `test_cache_ttl_expiry` : Expiration correcte du cache
+- `test_coalescing_same_request` : Fusion requêtes identiques simultanées
+- `test_coalescing_different_requests` : Pas de fusion pour requêtes différentes
+- `test_metrics_exposed` : Métriques Prometheus exposées
+- `test_metrics_increment` : Incrémentation correcte des compteurs
+- `test_rate_limit_tracking` : Suivi quota API mensuel
+- `test_rate_limit_near_limit` : Comportement proche de la limite
+- `test_circuit_breaker_state` : État du circuit breaker
 
 #### Tests Assistant (LangGraph)
 
@@ -1349,7 +1307,7 @@ docker-compose up -d
 2. Le cache MongoDB (TTL 300s) réduit les appels API - vérifier qu'il fonctionne :
 
 ```bash
-docker-compose exec mongo mongosh hello_mira --eval "db.airport_cache.countDocuments()"
+docker-compose exec mongo mongosh hello_mira --eval "db.gateway_cache.countDocuments()"
 ```
 
 ### Problème : Mistral API Key invalide
