@@ -1,5 +1,5 @@
 # Prometheus Configuration for Hello Mira Flight Platform
-# Scrapes metrics from all microservices (airport, flight, assistant)
+# Scrapes metrics from all microservices (gateway, airport, flight, assistant)
 
 global:
   scrape_interval: 15s      # Scrape metrics every 15 seconds
@@ -20,7 +20,20 @@ scrape_configs:
         labels:
           service: 'prometheus'
 
+  # Gateway - API Gateway pour Aviationstack (port 8004)
+  # IMPORTANT: Source unique des metriques API Aviationstack
+  # (cache, rate limiting, circuit breaker, coalescing)
+  - job_name: 'gateway'
+    scrape_interval: 10s
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['gateway:8004']
+        labels:
+          service: 'gateway'
+          microservice: 'gateway'
+
   # Airport microservice (port 8001)
+  # Metriques HTTP internes uniquement (les metriques API sont dans gateway)
   - job_name: 'airport'
     scrape_interval: 10s
     metrics_path: '/metrics'
@@ -31,6 +44,7 @@ scrape_configs:
           microservice: 'airport'
 
   # Flight microservice (port 8002)
+  # Metriques HTTP internes uniquement (les metriques API sont dans gateway)
   - job_name: 'flight'
     scrape_interval: 10s
     metrics_path: '/metrics'
@@ -40,7 +54,7 @@ scrape_configs:
           service: 'flight'
           microservice: 'flight'
 
-  # Assistant microservice (port 8003) - optional if implemented
+  # Assistant microservice (port 8003)
   - job_name: 'assistant'
     scrape_interval: 10s
     metrics_path: '/metrics'

@@ -1,74 +1,127 @@
 """
-Métriques Prometheus custom pour le monitoring de performance.
+Metriques Prometheus pour le service Airport.
 
-Conformément à la Partie 3 - Optimisation du test technique :
-- ✅ Latence : fournie par prometheus-fastapi-instrumentator
-- ✅ Nombre d'appels HTTP : fourni par prometheus-fastapi-instrumentator
-- ✅ Hit-rate cache : métriques custom ci-dessous
-- ✅ Nombre d'appels API Aviationstack : métriques custom ci-dessous
+Metriques custom pour le monitoring du service :
+- Recherches d'aeroports (IATA, nom, proximite)
+- Geocodage (appels Nominatim)
+- Vols (departs, arrivees)
+
+Architecture :
+- Les metriques API Aviationstack restent dans le Gateway
+- Ce fichier ajoute des metriques specifiques au service Airport
 """
 
-from prometheus_client import Counter
+from prometheus_client import Counter, Histogram, Gauge
 
 # ============================================================================
-# MÉTRIQUES CACHE MONGODB
+# METRIQUES RECHERCHES D'AEROPORTS
 # ============================================================================
 
-cache_hits = Counter(
-    'cache_hits_total',
-    'Nombre total de cache hits (données trouvées en cache)',
-    ['service', 'cache_type']
+airport_lookups = Counter(
+    'airport_lookups_total',
+    'Nombre total de recherches d\'aeroports',
+    ['type', 'status']  # type: iata, name, nearest, nearest_by_address, location / status: success, not_found, error
 )
 
-cache_misses = Counter(
-    'cache_misses_total',
-    'Nombre total de cache misses (données non trouvées, appel API requis)',
-    ['service', 'cache_type']
+airport_lookup_latency = Histogram(
+    'airport_lookup_latency_seconds',
+    'Latence des recherches d\'aeroports en secondes',
+    ['type'],
+    buckets=(0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 2.0, 5.0, 10.0)
 )
 
-cache_expired = Counter(
-    'cache_expired_total',
-    'Nombre total de clés expirées (TTL dépassé)',
-    ['service', 'cache_type']
-)
-
-# ============================================================================
-# MÉTRIQUES API EXTERNE AVIATIONSTACK
-# ============================================================================
-
-api_calls = Counter(
-    'aviationstack_api_calls_total',
-    'Nombre total d\'appels à l\'API Aviationstack (consommation quota)',
-    ['service', 'endpoint', 'status']
-)
-
-coalesced_requests = Counter(
-    'coalesced_requests_total',
-    'Nombre total de requêtes coalescées (requêtes identiques fusionnées)',
-    ['service', 'endpoint']
+airports_found = Histogram(
+    'airport_airports_found',
+    'Nombre d\'aeroports trouves par recherche',
+    ['type'],  # type: name, location
+    buckets=(0, 1, 5, 10, 20, 50, 100)
 )
 
 # ============================================================================
-# QUERIES PROMQL UTILES (pour documentation)
+# METRIQUES GEOCODAGE (NOMINATIM)
+# ============================================================================
+
+geocoding_calls = Counter(
+    'airport_geocoding_calls_total',
+    'Nombre total d\'appels au service de geocodage Nominatim',
+    ['status']  # status: success, not_found, error
+)
+
+geocoding_latency = Histogram(
+    'airport_geocoding_latency_seconds',
+    'Latence des appels de geocodage en secondes',
+    [],
+    buckets=(0.1, 0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 5.0, 10.0)
+)
+
+# ============================================================================
+# METRIQUES VOLS (DEPARTS / ARRIVEES)
+# ============================================================================
+
+flight_queries = Counter(
+    'airport_flight_queries_total',
+    'Nombre de requetes de vols (departs/arrivees)',
+    ['type', 'status']  # type: departures, arrivals / status: success, error
+)
+
+flight_query_latency = Histogram(
+    'airport_flight_query_latency_seconds',
+    'Latence des requetes de vols en secondes',
+    ['type'],  # type: departures, arrivals
+    buckets=(0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 2.0, 5.0, 10.0)
+)
+
+flights_returned = Histogram(
+    'airport_flights_returned',
+    'Nombre de vols retournes par requete',
+    ['type'],  # type: departures, arrivals
+    buckets=(0, 1, 5, 10, 20, 50, 100)
+)
+
+# ============================================================================
+# METRIQUES CALCUL DE DISTANCE
+# ============================================================================
+
+distance_calculations = Counter(
+    'airport_distance_calculations_total',
+    'Nombre de calculs de distance effectues',
+    []
+)
+
+nearest_airport_distance = Gauge(
+    'airport_last_nearest_distance_km',
+    'Distance du dernier aeroport le plus proche trouve (km)',
+    []
+)
+
+# ============================================================================
+# QUERIES PROMQL UTILES
 # ============================================================================
 
 """
-Exemples de queries Prometheus pour exploiter ces métriques :
+Exemples de queries Prometheus :
 
-1. Hit-rate du cache (%) :
-   sum(rate(cache_hits_total{service="airport"}[5m])) /
-   (sum(rate(cache_hits_total{service="airport"}[5m])) + sum(rate(cache_misses_total{service="airport"}[5m]))) * 100
+1. Recherches d'aeroports par type :
+   sum(rate(airport_lookups_total[5m])) by (type)
 
-2. Nombre d'appels API Aviationstack par minute :
-   rate(aviationstack_api_calls_total{service="airport"}[1m]) * 60
+2. Latence P95 des recherches :
+   histogram_quantile(0.95, rate(airport_lookup_latency_seconds_bucket[5m]))
 
-3. Total cache misses sur la dernière heure :
-   increase(cache_misses_total{service="airport"}[1h])
+3. Taux de succes du geocodage :
+   sum(rate(airport_geocoding_calls_total{status="success"}[5m])) /
+   sum(rate(airport_geocoding_calls_total[5m])) * 100
 
-4. Taux de clés expirées :
-   rate(cache_expired_total{service="airport"}[5m])
+4. Vols par type (departs vs arrivees) :
+   sum(rate(airport_flight_queries_total[5m])) by (type)
 
-5. Taux de coalescing (% de requêtes fusionnées) :
-   sum(rate(coalesced_requests_total{service="airport"}[5m])) /
-   (sum(rate(coalesced_requests_total{service="airport"}[5m])) + sum(rate(aviationstack_api_calls_total{service="airport"}[5m]))) * 100
+5. Nombre moyen d'aeroports trouves par recherche de nom :
+   rate(airport_airports_found_sum{type="name"}[5m]) /
+   rate(airport_airports_found_count{type="name"}[5m])
+
+6. Latence moyenne du geocodage :
+   rate(airport_geocoding_latency_seconds_sum[5m]) /
+   rate(airport_geocoding_latency_seconds_count[5m])
+
+7. Distance moyenne de l'aeroport le plus proche :
+   airport_last_nearest_distance_km
 """
