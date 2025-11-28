@@ -5,10 +5,10 @@
 1. [Vue d'Ensemble](#vue-densemble)
 2. [Architecture](#architecture)
 3. [Composants](#composants)
-4. [Cache MongoDB](#cache-mongodb)
-5. [Rate Limiter](#rate-limiter)
-6. [Circuit Breaker](#circuit-breaker)
-7. [Request Coalescing](#request-coalescing)
+4. [Cache MongoDB](#1-cache-mongodb)
+5. [Rate Limiter](#2-rate-limiter)
+6. [Circuit Breaker](#3-circuit-breaker)
+7. [Request Coalescing](#4-request-coalescing)
 8. [Endpoints API](#endpoints-api)
 9. [Métriques Prometheus](#métriques-prometheus)
 10. [Configuration](#configuration)
@@ -44,39 +44,39 @@ Le **Gateway** est le point d'entrée unique vers l'API Aviationstack. Il centra
                      ┌────────────────────────────────────────────────────────┐
   Requête entrante   │                    GATEWAY                             │
         │            │                                                        │
-        ▼            │  ┌─────────────────────────────────────────────────┐  │
-   ┌─────────┐       │  │              call_aviationstack()               │  │
-   │ Airport │──────▶│  │                                                 │  │
-   │ Service │       │  │  1. Check Cache ─────────────────────┐         │  │
-   └─────────┘       │  │     │                                │         │  │
-                     │  │     │ MISS                           │ HIT     │  │
-   ┌─────────┐       │  │     ▼                                │         │  │
-   │ Flight  │──────▶│  │  2. Check Circuit Breaker            │         │  │
-   │ Service │       │  │     │                                │         │  │
-   └─────────┘       │  │     │ CLOSED                         │         │  │
-                     │  │     ▼                                │         │  │
-                     │  │  3. Request Coalescer               │         │  │
-                     │  │     │                                │         │  │
-                     │  │     │ (dedupe concurrent)            │         │  │
-                     │  │     ▼                                │         │  │
-                     │  │  4. _do_api_call()                   │         │  │
-                     │  │     │                                │         │  │
-                     │  │     ├─ Check Rate Limit              │         │  │
-                     │  │     │                                │         │  │
-                     │  │     ├─ HTTP GET Aviationstack        │         │  │
-                     │  │     │                                │         │  │
-                     │  │     ├─ Record Success/Failure        │         │  │
-                     │  │     │  (Circuit Breaker)             │         │  │
-                     │  │     │                                │         │  │
-                     │  │     └─ Set Cache                     │         │  │
-                     │  │                                      │         │  │
-                     │  │     ◀─────────────────────────────────┘         │  │
-                     │  │     │                                           │  │
-                     │  │     ▼                                           │  │
-                     │  │   Return Response                               │  │
-                     │  └─────────────────────────────────────────────────┘  │
+        ▼            │  ┌─────────────────────────────────────────────────┐   │
+   ┌─────────┐       │  │              call_aviationstack()               │   │
+   │ Airport │──────▶│  │                                                 │   │
+   │ Service │       │  │  1. Check Cache ─────────────────────┐          │   │
+   └─────────┘       │  │     │                                │          │   │
+                     │  │     │ MISS                           │ HIT      │   │
+   ┌─────────┐       │  │     ▼                                │          │   │
+   │ Flight  │──────▶│  │  2. Check Circuit Breaker            │          │   │
+   │ Service │       │  │     │                                │          │   │
+   └─────────┘       │  │     │ CLOSED                         │          │   │
+                     │  │     ▼                                │          │   │
+                     │  │  3. Request Coalescer                │          │   │
+                     │  │     │                                │          │   │
+                     │  │     │ (dedupe concurrent)            │          │   │
+                     │  │     ▼                                │          │   │
+                     │  │  4. _do_api_call()                   │          │   │
+                     │  │     │                                │          │   │
+                     │  │     ├─ Check Rate Limit              │          │   │
+                     │  │     │                                │          │   │
+                     │  │     ├─ HTTP GET Aviationstack        │          │   │
+                     │  │     │                                │          │   │
+                     │  │     ├─ Record Success/Failure        │          │   │
+                     │  │     │  (Circuit Breaker)             │          │   │
+                     │  │     │                                │          │   │
+                     │  │     └─ Set Cache                     │          │   │
+                     │  │                                      │          │   │
+                     │  │     ◀────────────────────────────────┘          │  │
+                     │  │     │                                           │   │
+                     │  │     ▼                                           │   │
+                     │  │   Return Response                               │   │
+                     │  └────────────────────────────────────────────────-┘   │
                      │                                                        │
-                     └────────────────────────────────────────────────────────┘
+                     └──────────────────────────────────────────────────────--┘
 ```
 
 ### Structure des Fichiers
