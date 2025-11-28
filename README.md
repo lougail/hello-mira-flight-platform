@@ -61,7 +61,7 @@ Architecture moderne combinant FastAPI, MongoDB, LangGraph et Mistral AI pour fo
 **Monitoring (8 services Docker) :**
 
 - ✅ **Prometheus** (port 9090) : Collecte de métriques custom (cache, coalescing, latency)
-- ✅ **Grafana** (port 3000) : Dashboard avec 19 panels de monitoring temps réel
+- ✅ **Grafana** (port 3000) : Dashboard avec 34 panels de monitoring temps réel
 - ✅ **Tests e2e** : 27 tests passent (100%) - Validation complète Gateway + microservices + orchestration
 - ✅ **77 commits** : Historique complet du développement
 
@@ -283,7 +283,7 @@ hello-mira-flight-platform/
 ├── monitoring/                       # Infrastructure Monitoring
 │   ├── grafana/
 │   │   ├── dashboards/
-│   │   │   └── hello-mira-metrics.json  # Dashboard 19 panels (5 sections)
+│   │   │   └── hello-mira-metrics.json  # Dashboard 34 panels (6 sections)
 │   │   └── provisioning/
 │   │       ├── dashboards/
 │   │       │   └── default.yml
@@ -961,18 +961,18 @@ Le projet intègre un stack de monitoring complet basé sur **Prometheus** et **
 │                            │ Scrape /metrics every 10s           │
 └────────────────────────────┼─────────────────────────────────────┘
                              │
-        ┌────────────────────┼────────────────────┐
-        │                    │                    │
-        ▼                    ▼                    ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│   Gateway    │    │   Airport    │    │   Flight     │
-│   :8004      │    │   :8001      │    │   :8002      │
-│  /metrics    │    │  /metrics    │    │  /metrics    │
-│              │    │              │    │              │
-│  Source des  │    │  HTTP only   │    │  HTTP only   │
-│  métriques   │    │              │    │              │
-│  API/Cache   │    │              │    │              │
-└──────────────┘    └──────────────┘    └──────────────┘
+        ┌───────────────┬────┴────┬───────────────┐
+        │               │         │               │
+        ▼               ▼         ▼               ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│   Gateway    │ │   Airport    │ │   Flight     │ │  Assistant   │
+│   :8004      │ │   :8001      │ │   :8002      │ │   :8003      │
+│  /metrics    │ │  /metrics    │ │  /metrics    │ │  /metrics    │
+│              │ │              │ │              │ │              │
+│  Source des  │ │  HTTP only   │ │  HTTP only   │ │  HTTP only   │
+│  métriques   │ │              │ │              │ │  + LangGraph │
+│  API/Cache   │ │              │ │              │ │              │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
 
 **Point clé** : Le **Gateway (port 8004)** centralise toutes les métriques liées à l'API Aviationstack (cache, rate limiting, circuit breaker, coalescing). Les autres services exposent uniquement leurs métriques HTTP.
@@ -987,7 +987,7 @@ Le projet intègre un stack de monitoring complet basé sur **Prometheus** et **
 **Dashboard principal** : "Hello Mira - Flight Platform Metrics"
 
 - Disponible automatiquement au démarrage (provisioning)
-- 19 panels de monitoring (5 sections organisées)
+- 34 panels de monitoring (6 sections organisées)
 - Refresh automatique : 10 secondes
 - Time range : Last 15 minutes (ajustable)
 
