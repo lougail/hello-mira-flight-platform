@@ -31,13 +31,13 @@ async def get_airport_by_iata_tool(iata: str) -> dict:
 
 
 @tool
-async def search_airports_tool(name: str, country_code: Optional[str] = None) -> dict:
+async def search_airports_tool(name: str, country_code: str) -> dict:
     """
     Recherche des aéroports par nom de lieu (ville, région).
 
     Args:
         name: Nom de la ville ou région (ex: Paris, London, Tokyo)
-        country_code: Code pays ISO optionnel (ex: FR, US, JP)
+        country_code: Code pays ISO REQUIS (ex: FR, US, JP, GB, DE)
 
     Returns:
         Liste d'aéroports correspondant à la recherche
