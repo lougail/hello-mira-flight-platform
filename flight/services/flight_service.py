@@ -165,7 +165,7 @@ class FlightService:
             current_flight = flights[0]
 
             # Stocke TOUS les vols dans MongoDB pour construire l'historique
-            # L'API retourne 2-3 vols (aujourd'hui + jours précédents)
+            # L'API retourne ~10 jours d'historique (30-40 vols pour les vols quotidiens)
             if self.flights_collection is not None:
                 try:
                     queried_at = datetime.utcnow()
@@ -328,12 +328,36 @@ class FlightService:
             flight_lookup_latency.labels(type="history").observe(latency)
             history_flights_count.observe(len(all_flights))
 
-            # Si aucun historique trouvé, suggère de consulter le vol d'abord
+            # Si aucun historique trouvé, on fait UN appel API pour construire l'historique
+            # L'API Aviationstack retourne ~10 jours d'historique dans une seule requête
             if not all_flights:
                 logger.info(
-                    f"Aucun historique pour {flight_iata}. "
-                    f"Consultez d'abord GET /flights/{flight_iata} pour accumuler des données."
+                    f"Aucun historique pour {flight_iata} en base. "
+                    f"Appel API pour construire l'historique automatiquement..."
                 )
+
+                # Appel API qui va peupler MongoDB avec ~10 jours d'historique
+                await self.get_flight_status(flight_iata)
+
+                # Re-requête MongoDB après population
+                cursor = self.flights_collection.find(query).sort("flight_date", 1)
+                flights_data = await cursor.to_list(length=None)
+
+                for data in flights_data:
+                    data.pop("_id", None)
+                    data.pop("queried_at", None)
+                    flight_date = data.get("flight_date")
+                    if flight_date in seen_dates:
+                        continue
+                    seen_dates.add(flight_date)
+                    try:
+                        flight = Flight(**data)
+                        all_flights.append(flight)
+                    except Exception as e:
+                        logger.error(f"Erreur lors de la conversion du vol: {e}")
+                        continue
+
+                logger.info(f"Historique construit: {len(all_flights)} vols pour {flight_iata}")
 
             return all_flights
 
