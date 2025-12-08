@@ -15,6 +15,11 @@ jobs:
         with:
           python-version: "3.13"
           cache: "pip"
+          cache-dependency-path: |
+            gateway/requirements.txt
+            flight/requirements.txt
+            airport/requirements.txt
+            assistant/requirements.txt
 
       - name: Installer les dépendances
         run: |
