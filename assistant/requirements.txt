@@ -27,7 +27,7 @@ langchain-core==1.1.0          # Nov 2025 - MAJOR: v1.0+ stable
 langchain-mistralai==1.1.0     # 24 nov 2025 - MAJOR: v1.0+ compatible
 
 # Utilitaires
-python-dotenv==1.0.0
+python-dotenv==1.0.1
 
 # Logging et monitoring
 python-json-logger==3.2.1
