@@ -31,6 +31,16 @@ jobs:
           # Avertissements de style
           flake8 gateway flight airport assistant --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
+      - name: Démarrer les services Docker
+        run: |
+          docker-compose up -d
+          sleep 10  # Attendre que les services démarrent
+
       - name: Lancer les tests
         run: |
           pytest tests/ -v
+
+      - name: Arrêter les services Docker
+        if: always()
+        run: |
+          docker-compose down
