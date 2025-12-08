@@ -14,15 +14,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: "pip"
 
       - name: Installer les dépendances
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pytest pytest-asyncio httpx
-          pip install -r gateway/requirements.txt
-          pip install -r flight/requirements.txt
-          pip install -r airport/requirements.txt
-          pip install -r assistant/requirements.txt
+          pip install \
+            flake8 pytest pytest-asyncio httpx \
+            -r gateway/requirements.txt \
+            -r flight/requirements.txt \
+            -r airport/requirements.txt \
+            -r assistant/requirements.txt
 
       - name: Lint avec flake8
         run: |
