@@ -5,15 +5,15 @@
 # Microservice d'assistant IA conversationnel avec LangGraph + Mistral AI
 #
 # Architecture :
-# - Python 3.12 slim (image légère)
+# - Python 3.13 slim (image légère)
 # - FastAPI + LangGraph + Mistral AI
 # - Port 8003
 # - User non-root (UID 1000)
 #
 # ============================================================================
 
-# Image de base Python 3.12 slim
-FROM python:3.12-slim
+# Image de base Python 3.13 slim
+FROM python:3.13-slim
 
 # Métadonnées
 LABEL maintainer="Louis <https://github.com/lougail>"

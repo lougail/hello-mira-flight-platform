@@ -18,7 +18,7 @@
 # ============================================================================
 # STAGE 1: Builder (dépendances)
 # ============================================================================
-FROM python:3.11-slim as builder
+FROM python:3.13-slim as builder
 
 LABEL maintainer="Louis - Hello Mira Test Technique"
 LABEL description="Microservice Airport - Stage Builder"
@@ -43,7 +43,7 @@ RUN python -m venv /opt/venv && \
 # ============================================================================
 # STAGE 2: Runtime (production)
 # ============================================================================
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 LABEL maintainer="Louis - Hello Mira Test Technique"
 LABEL description="Microservice Airport - Hello Mira Flight Platform"

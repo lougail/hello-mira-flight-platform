@@ -5,9 +5,6 @@ on: [push, pull_request]
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./API
 
     steps:
       - name: Récupération du code
@@ -21,16 +18,19 @@ jobs:
       - name: Installer les dépendances
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pytest
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install flake8 pytest pytest-asyncio httpx
+          pip install -r gateway/requirements.txt
+          pip install -r flight/requirements.txt
+          pip install -r airport/requirements.txt
+          pip install -r assistant/requirements.txt
 
       - name: Lint avec flake8
         run: |
-          # arrêter le test s'il y a des erreurs de suntaxe Python ou des noms indéfinis
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # exit-zero traite toutes les erreurs comme des avertissements
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          # Erreurs de syntaxe Python ou noms indéfinis
+          flake8 gateway flight airport assistant --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Avertissements de style
+          flake8 gateway flight airport assistant --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Lancer les tests
         run: |
-          pytest
+          pytest tests/ -v
