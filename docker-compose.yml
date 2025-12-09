@@ -79,7 +79,7 @@ services:
       context: ./gateway
       dockerfile: Dockerfile
 
-    image: hello-mira/gateway:latest
+    image: louisgaillard94/hello-mira-gateway:latest
     container_name: hello-mira-gateway
     restart: unless-stopped
 
@@ -134,7 +134,7 @@ services:
       context: ./airport
       dockerfile: Dockerfile
 
-    image: hello-mira/airport:latest
+    image: louisgaillard94/hello-mira-airport:latest
     container_name: hello-mira-airport
     restart: unless-stopped
 
@@ -185,7 +185,7 @@ services:
       context: ./flight
       dockerfile: Dockerfile
 
-    image: hello-mira/flight:latest
+    image: louisgaillard94/hello-mira-flight:latest
     container_name: hello-mira-flight
     restart: unless-stopped
 
@@ -243,7 +243,7 @@ services:
       context: ./assistant
       dockerfile: Dockerfile
 
-    image: hello-mira/assistant:latest
+    image: louisgaillard94/hello-mira-assistant:latest
     container_name: hello-mira-assistant
     restart: unless-stopped
 
@@ -415,7 +415,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
 
-    image: hello-mira/frontend:latest
+    image: louisgaillard94/hello-mira-frontend:latest
     container_name: hello-mira-frontend
     restart: unless-stopped
 

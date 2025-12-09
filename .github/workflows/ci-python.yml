@@ -41,10 +41,25 @@ jobs:
           # Avertissements de style
           flake8 gateway flight airport assistant --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build et Push des images Docker
+        run: |
+          docker compose build
+          docker compose push
+
       - name: Démarrer les services Docker
+        env:
+          MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          AVIATIONSTACK_API_KEY: ${{ secrets.AVIATIONSTACK_API_KEY }}
         run: |
           docker compose up -d
-          sleep 10  # Attendre que les services démarrent
+          sleep 30  # Attendre que les services démarrent
 
       - name: Lancer les tests
         run: |
