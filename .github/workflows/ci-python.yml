@@ -102,3 +102,61 @@ jobs:
       - name: Arrêter les services Docker
         if: always()
         run: docker compose down
+
+  # ==========================================================================
+  # Job 4: Déploiement Azure Container Apps
+  # ==========================================================================
+  deploy:
+    name: Déploiement Azure
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Connexion à Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Déployer Gateway
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: lgaillardRG
+          containerAppEnvironment: hello-mira-env
+          containerAppName: hello-mira-gateway
+          imageToDeploy: louisgaillard94/hello-mira-gateway:latest
+
+      - name: Déployer Airport
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: lgaillardRG
+          containerAppEnvironment: hello-mira-env
+          containerAppName: hello-mira-airport
+          imageToDeploy: louisgaillard94/hello-mira-airport:latest
+
+      - name: Déployer Flight
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: lgaillardRG
+          containerAppEnvironment: hello-mira-env
+          containerAppName: hello-mira-flight
+          imageToDeploy: louisgaillard94/hello-mira-flight:latest
+
+      - name: Déployer Assistant
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: lgaillardRG
+          containerAppEnvironment: hello-mira-env
+          containerAppName: hello-mira-assistant
+          imageToDeploy: louisgaillard94/hello-mira-assistant:latest
+
+      - name: Déployer Frontend
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: lgaillardRG
+          containerAppEnvironment: hello-mira-env
+          containerAppName: hello-mira-frontend
+          imageToDeploy: louisgaillard94/hello-mira-frontend:latest
